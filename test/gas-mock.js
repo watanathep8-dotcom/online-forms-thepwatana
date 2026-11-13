@@ -566,6 +566,53 @@ test("admin edit keeps status; delete removes the row and trashes its files; aud
   assert.ok(/^online_forms_log_/.test(csv.filename));
 });
 
+test("final review: summary groups a renamed supplier into ONE row (by supplier id)", () => {
+  okData(adm("supplier_save", { name: "บจก. เปลี่ยนชื่อ เดิม" }));
+  const sup = boot().suppliers.find(x => x.name === "บจก. เปลี่ยนชื่อ เดิม");
+  okData(pub("submit", form({ supplier_id: sup.id, lot_no: "LOT-RN1", result: "fail", defect_detail: "x" })));
+  okData(adm("supplier_save", { id: sup.id, name: "บจก. เปลี่ยนชื่อ ใหม่" }));
+  okData(pub("submit", form({ supplier_id: sup.id, lot_no: "LOT-RN2" })));
+  const rows = okData(pub("summary")).rows.filter(r => r.supplier_id === sup.id);
+  assert.strictEqual(rows.length, 1);
+  assert.deepStrictEqual([rows[0].supplier, rows[0].total, rows[0].fail, rows[0].pct], ["บจก. เปลี่ยนชื่อ ใหม่", 2, 1, 50]);
+});
+
+test("final review: editing a sheet keeps its stored supplier / item names and category when the ids are unchanged", () => {
+  okData(adm("item_save", { name: "ขวดเดิม ทดสอบ", code: "OLD-1", category: "bottle" }));
+  const it = boot().items.find(x => x.code === "OLD-1");
+  const d = okData(pub("submit", form({ item_id: it.id, lot_no: "LOT-KEEP" })));
+  okData(adm("item_save", { id: it.id, name: "ขวดชื่อใหม่", code: "NEW-1", category: "box" }));
+  const r0 = okData(pub("inspection", { id: d.id })).inspection;
+  okData(adm("inspection_update", form({ id: d.id, item_id: it.id, lot_no: "LOT-KEEP", po_no: "PO-ONLY", photos: r0.photos, bill_photo: r0.bill_photo, inspector_sign: r0.inspector_sign })));
+  const r = okData(pub("inspection", { id: d.id })).inspection;
+  assert.deepStrictEqual([r.item_name, r.item_code, r.category, r.po_no], ["ขวดเดิม ทดสอบ", "OLD-1", "bottle", "PO-ONLY"]);
+  assert.strictEqual(r.checks.length, 5); // still the bottle checklist
+});
+
+test("final review: a retried submit with the same req_id returns the first sheet (no duplicate, no extra files)", () => {
+  const n = dataRows("inspections");
+  const a = okData(pub("submit", form({ lot_no: "LOT-REQ", req_id: "req-0123456789abcdef" })));
+  const files = liveFiles();
+  const b = okData(pub("submit", form({ lot_no: "LOT-REQ", req_id: "req-0123456789abcdef" })));
+  assert.strictEqual(b.id, a.id);
+  assert.strictEqual(b.doc_no, a.doc_no);
+  assert.strictEqual(b.duplicate, true);
+  assert.strictEqual(dataRows("inspections"), n + 1);
+  assert.strictEqual(liveFiles(), files);
+  err(pub("submit", form({ req_id: "bad id with spaces" })), /req_id/);
+});
+
+test("final review: resubmitting a returned sheet clears the returning head from the pending sheet", () => {
+  const d = okData(pub("submit", form({ lot_no: "LOT-HEAD" })));
+  okData(qc("return", { id: d.id, head_id: H[0].id, reason: "แก้ PO" }));
+  const r = okData(pub("inspection", { id: d.id })).inspection;
+  okData(pub("submit", form({ id: d.id, lot_no: "LOT-HEAD", photos: r.photos, bill_photo: r.bill_photo, inspector_sign: r.inspector_sign })));
+  const r2 = okData(pub("inspection", { id: d.id })).inspection;
+  assert.deepStrictEqual([r2.status, r2.head, r2.return_reason, r2.returned_at], ["pending", "", "", null]);
+  const pend = okData(pub("history", { status: "pending", q: "LOT-HEAD" })).items[0];
+  assert.strictEqual(pend.head, "");
+});
+
 test("GET: public reads work, writes / tokens refused", () => {
   const g = p => JSON.parse(ctx.doGet({ parameter: p }).getContent());
   assert.strictEqual(g({ action: "bootstrap" }).ok, true);

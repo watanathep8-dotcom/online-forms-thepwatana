@@ -59,7 +59,7 @@ a { color: var(--blue2); }
 .fld > span { display: flex; gap: 8px; align-items: center; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .row2.r21 { grid-template-columns: 2fr 1fr; }
-.inp { width: 100%; font: 400 15px 'Sarabun'; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: var(--ink); min-height: 42px; }
+.inp { width: 100%; font: 400 16px 'Sarabun'; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: var(--ink); min-height: 42px; }
 .inp:focus { outline: 2px solid #93c5fd; border-color: var(--blue2); }
 .inp[readonly] { background: #f8fafc; color: #475569; }
 .inp.need { border-color: var(--red); background: #fff7f7; }
@@ -88,6 +88,7 @@ textarea.inp { resize: vertical; }
 .pill.amber { background: var(--amber-s); color: #b45309; } .pill.blue { background: var(--blue-s); color: var(--blue); }
 .banner { display: flex; gap: 12px; padding: 12px 16px; border-radius: 12px; align-items: flex-start; }
 .banner.red { background: var(--red-s); color: #991b1b; }
+.banner.blue { background: var(--blue-s); color: var(--blue); }
 .empty { text-align: center; color: var(--muted); padding: 36px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .empty i { font-size: 28px; opacity: .5; }
 .empty.err { color: var(--red); }
@@ -127,7 +128,7 @@ table { border-collapse: collapse; width: 100%; }
 .wgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; margin-top: 10px; max-height: 420px; overflow-y: auto; padding: 2px; }
 .wgrid label { display: flex; flex-direction: column; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 3px; background: #fff; }
 .wgrid small { color: var(--muted); font-size: 11px; }
-.wgrid input { width: 100%; border: 0; text-align: center; font: 600 15px 'Sarabun'; padding: 2px; background: transparent; min-height: 28px; }
+.wgrid input { width: 100%; border: 0; text-align: center; font: 600 16px 'Sarabun'; padding: 2px; background: transparent; min-height: 28px; }
 .wgrid input:focus { outline: 2px solid #93c5fd; border-radius: 6px; }
 .wgrid input.filled { color: var(--ink); }
 .wgrid input.bad { color: var(--red); background: var(--red-s); border-radius: 6px; }

@@ -238,6 +238,24 @@ function signPad(canvas) {
   const end = () => { drawing = false; };
   canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
   requestAnimationFrame(fit);
+  // phone rotated / window resized: refit the canvas and redraw what was signed
+  let lastW = 0;
+  const onResize = () => {
+    if (!canvas.isConnected) { window.removeEventListener('resize', onResize); return; }
+    const w = canvas.getBoundingClientRect().width;
+    if (!w || Math.abs(w - lastW) < 2) return;
+    lastW = w;
+    const had = dirty ? canvas.toDataURL('image/png') : null;
+    const ow = canvas.width, oh = canvas.height;
+    fit();
+    if (had) {
+      const im = new Image();
+      im.onload = () => { const k = window.devicePixelRatio || 1; g.drawImage(im, 0, 0, ow, oh, 0, 0, canvas.width / k, canvas.height / k); dirty = true; };
+      im.src = had;
+    }
+  };
+  requestAnimationFrame(() => { lastW = canvas.getBoundingClientRect().width; });
+  window.addEventListener('resize', onResize);
   return { clear: fit, empty: () => !dirty, data: () => canvas.toDataURL('image/png') };
 }
 
@@ -247,6 +265,7 @@ async function pageForm(editId) {
   let old = null;
   if (editId) {
     old = (await api('inspection', { id: editId })).inspection;
+    if (old.status !== 'returned') setTitle('แก้ไขใบ ' + old.doc_no, 'ผู้ดูแลระบบ · สถานะคงเดิม');
     if (old.status !== 'returned' && !can('admin')) { view.innerHTML = `<div class="card empty"><i class="fa-solid fa-lock"></i>ใบ ${esc(old.doc_no)} อยู่ในสถานะ “${STATUS[old.status].t}” แก้ไขได้เฉพาะใบที่ถูกตีกลับ</div>`; return; }
   }
   const sups = b.suppliers.filter(s => s.active || (old && s.id === old.supplier_id));
@@ -262,7 +281,8 @@ async function pageForm(editId) {
   };
   const opt = (list, sel, lab) => `<option value="">— เลือก —</option>` + list.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(lab(x))}</option>`).join('');
   view.innerHTML = `
-  ${old ? `<div class="banner red"><i class="fa-solid fa-rotate-left"></i><div><b>${esc(old.doc_no)} ถูกตีกลับ</b> โดย ${esc(old.head)} · ${dtTH(old.returned_at)}<br>เหตุผล: ${esc(old.return_reason)}</div></div>` : ''}
+  ${old && old.status === 'returned' ? `<div class="banner red"><i class="fa-solid fa-rotate-left"></i><div><b>${esc(old.doc_no)} ถูกตีกลับ</b> โดย ${esc(old.head)} · ${dtTH(old.returned_at)}<br>เหตุผล: ${esc(old.return_reason)}</div></div>` : ''}
+  ${old && old.status !== 'returned' ? `<div class="banner blue"><i class="fa-solid fa-user-shield"></i><div><b>ผู้ดูแลระบบแก้ไข ${esc(old.doc_no)}</b> · สถานะคงเดิม (${STATUS[old.status].t})</div></div>` : ''}
   <form id="pf" class="pf" novalidate>
   <section class="card sec">
     <h2><span class="num">1</span>ข้อมูลการรับเข้า</h2>
@@ -341,7 +361,7 @@ async function pageForm(editId) {
   </section>
   <div class="form-acts">
     <button type="button" class="btn ghost" id="resetBtn"><i class="fa-solid fa-eraser"></i> ${old ? 'ยกเลิก' : 'ล้างฟอร์ม'}</button>
-    <button class="btn green big" id="submitBtn"><i class="fa-solid fa-floppy-disk"></i> ${old ? 'ส่งให้หัวหน้า QC อีกครั้ง' : 'บันทึกผลการตรวจรับ (Submit Inspection)'}</button>
+    <button class="btn green big" id="submitBtn"><i class="fa-solid fa-floppy-disk"></i> ${old ? (old.status === 'returned' ? 'ส่งให้หัวหน้า QC อีกครั้ง' : 'บันทึกการแก้ไข') : 'บันทึกผลการตรวจรับ (Submit Inspection)'}</button>
   </div>
   </form>`;
 
@@ -350,10 +370,12 @@ async function pageForm(editId) {
   const state = { checks: old ? old.checks.slice() : [], cat_result: old?.cat_result || '', strength: old?.strength || '', weights: old ? old.weights.slice() : [], wmin: old?.wmin ?? null, wmax: old?.wmax ?? null, wunit: old?.wunit || 'g', autoResult: '' };
   const pad = signPad($('#signPad'));
   const curItem = () => b.items.find(i => i.id === Number(el('item_id').value));
+  // the category the sheet was recorded with stays while its item is unchanged (the server does the same)
+  const catKey = () => { const it = curItem(); return !it ? '' : old && it.id === old.item_id ? old.category : it.category; };
+  const reqId = 'r' + Array.from(crypto.getRandomValues(new Uint8Array(16)), x => x.toString(16).padStart(2, '0')).join(''); // a retried submit returns the same sheet
 
   function renderCrit() {
-    const it = curItem();
-    const cat = it ? it.category : '';
+    const cat = catKey();
     $('#critTbl').innerHTML = `<thead><tr><th>หมวดหมู่บรรจุภัณฑ์</th><th>กายภาพ</th><th>น้ำหนัก</th><th>รายละเอียดข้อกำหนดการตรวจสอบทางกายภาพ</th><th>ผลตรวจ</th></tr></thead><tbody>` +
       b.categories.map(c => {
         const on = c.key === cat;
@@ -370,7 +392,7 @@ async function pageForm(editId) {
 
   function renderWeights() {
     const it = curItem();
-    const cat = it && catOf(it.category);
+    const cat = it && catOf(catKey());
     const plan = aqlOf(el('lot_qty').value);
     const box = $('#weightBox');
     if (!cat || !cat.weight) { box.innerHTML = it ? '<p class="hint mt"><i class="fa-solid fa-circle-info"></i> หมวดนี้ไม่ต้องชั่งน้ำหนัก</p>' : ''; return; }
@@ -432,7 +454,7 @@ async function pageForm(editId) {
     const why = [];
     if (state.cat_result === 'fail') why.push('หมวดบรรจุภัณฑ์ Fail');
     if (plan && d != null && d >= plan.re) why.push('ข้อบกพร่องถึงเกณฑ์ปฏิเสธ');
-    const cat = it && catOf(it.category);
+    const cat = it && catOf(catKey());
     if (cat && cat.weight && wStats().out) why.push('น้ำหนักนอกเกณฑ์ ' + wStats().out + ' ชิ้น');
     const ready = state.cat_result && plan && d != null;
     state.autoResult = why.length ? 'fail' : ready ? 'pass' : '';
@@ -504,12 +526,12 @@ async function pageForm(editId) {
       received_date: el('received_date').value, received_time: el('received_time').value,
       supplier_id: el('supplier_id').value, item_id: el('item_id').value, po_no: el('po_no').value, invoice_no: el('invoice_no').value,
       lot_qty: el('lot_qty').value, unit: el('unit').value, lot_no: el('lot_no').value, defects: el('defects').value || '0',
-      checks: catOf(curItem().category).checks.map((_, i) => !!state.checks[i]), cat_result: state.cat_result, strength: state.strength,
+      checks: catOf(catKey()).checks.map((_, i) => !!state.checks[i]), cat_result: state.cat_result, strength: state.strength,
       weights: state.weights, wmin: state.wmin ?? '', wmax: state.wmax ?? '', wunit: state.wunit,
       result: res.value, defect_detail: el('defect_detail').value, photos: f.photos, bill_photo: f.bill,
       inspector: el('inspector').value, inspector_sign: f.sign || pad.data(),
     };
-    if (old) body.id = old.id;
+    if (old) body.id = old.id; else body.req_id = reqId;
     const btn = $('#submitBtn');
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก…';
     try {

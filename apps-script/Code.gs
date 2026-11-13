@@ -141,7 +141,9 @@ var SCHEMA = {
     ["inspector", "str"], ["inspector_sign", "str"], ["inspected_at", "dt"],
     ["head", "str"], ["head_sign", "str"], ["approved_at", "dt?"], ["head_comment", "str"],
     ["return_reason", "str"], ["returned_at", "dt?"],
-    ["created_at", "dt"], ["created_by", "str"], ["updated_at", "dt?"], ["updated_by", "str"]
+    ["created_at", "dt"], ["created_by", "str"], ["updated_at", "dt?"], ["updated_by", "str"],
+    // id the page generates per form: a retried submit (lost response) returns the first sheet
+    ["req_id", "str"]
   ],
   audit_logs: [
     ["id", "int"], ["category", "str"], ["action", "str"], ["ref", "str"], ["detail", "str"],
@@ -612,12 +614,15 @@ function actionSummary_(p) {
   var to = phpEmpty_(p.to) ? null : str_(p.to) + " 23:59:59";
   var by = {};
   var order = [];
+  // One row per supplier id (a renamed supplier stays one row), shown with the current settings name.
+  var names = {};
+  table_("suppliers").rows.forEach(function (x) { names[x.id] = x.name; });
   table_("inspections").rows.forEach(function (r) {
     if (r.status === "returned") return;
     if (from !== null && !(r.received_at >= from)) return;
     if (to !== null && !(r.received_at <= to)) return;
-    var key = r.supplier_id + "|" + r.supplier_name;
-    if (!by[key]) { by[key] = { supplier_id: r.supplier_id, supplier: r.supplier_name, total: 0, fail: 0, pending: 0, last_fail: "" }; order.push(key); }
+    var key = String(r.supplier_id);
+    if (!by[key]) { by[key] = { supplier_id: r.supplier_id, supplier: names[r.supplier_id] || r.supplier_name, total: 0, fail: 0, pending: 0, last_fail: "" }; order.push(key); }
     var s = by[key];
     s.total++;
     if (r.status === "pending") s.pending++;
@@ -761,14 +766,23 @@ function actionSubmit_(input, admin) {
   } else if (admin) {
     fail_("ไม่พบใบตรวจรับนี้");
   }
+  var reqId = str_(input.req_id);
+  if (reqId !== "" && !/^[A-Za-z0-9_-]{8,64}$/.test(reqId)) fail_("req_id ไม่ถูกต้อง");
+  if (!old && reqId !== "") {
+    var dup = null;
+    table_("inspections").rows.forEach(function (x) { if (x.req_id === reqId) dup = x; });
+    if (dup) return { id: dup.id, doc_no: dup.doc_no, status: dup.status, duplicate: true, message: "ใบตรวจรับ " + dup.doc_no + " ถูกบันทึกไว้แล้ว" };
+  }
   var f = {};
   f.received_at = moment_({ date: input.received_date, time: input.received_time });
   var sup = pickActive_("suppliers", input.supplier_id, "Supplier ", old ? old.supplier_id : null);
   var item = pickActive_("items", input.item_id, "รายการบรรจุภัณฑ์ ", old ? old.item_id : null);
-  var cat = category_(item.category);
+  // An edited sheet keeps the names / category it was recorded with unless the supplier / item is changed.
+  var sameItem = old && item.id === old.item_id;
+  var cat = category_(sameItem ? old.category : item.category);
   if (!cat) fail_("รายการบรรจุภัณฑ์นี้ยังไม่ได้กำหนดหมวด กรุณาแก้ที่หน้าตั้งค่า");
-  f.supplier_id = sup.id; f.supplier_name = sup.name;
-  f.item_id = item.id; f.item_name = item.name; f.item_code = item.code; f.category = cat.key;
+  f.supplier_id = sup.id; f.supplier_name = old && sup.id === old.supplier_id ? old.supplier_name : sup.name;
+  f.item_id = item.id; f.item_name = sameItem ? old.item_name : item.name; f.item_code = sameItem ? old.item_code : item.code; f.category = cat.key;
   f.po_no = requiredText_(input, "po_no", 60, "เลขที่ใบสั่งซื้อ (PO)");
   f.invoice_no = requiredText_(input, "invoice_no", 60, "เลขที่ใบส่งของ");
   f.lot_no = requiredText_(input, "lot_no", 60, "เลขที่ Lot / Batch");
@@ -841,7 +855,7 @@ function actionSubmit_(input, admin) {
   if (!old) {
     f.doc_no = docNo; f.status = "pending"; f.inspected_at = now;
     f.head = ""; f.head_sign = ""; f.approved_at = null; f.head_comment = ""; f.return_reason = ""; f.returned_at = null;
-    f.created_at = now; f.created_by = REQ_.actor; f.updated_at = null; f.updated_by = "";
+    f.created_at = now; f.created_by = REQ_.actor; f.updated_at = null; f.updated_by = ""; f.req_id = reqId;
     row = insert_("inspections", f);
     audit_("inspect", "submit", "ส่งใบตรวจรับ " + docNo + ": " + f.supplier_name + " · " + f.item_name + " · Lot " + f.lot_no +
       " · " + f.lot_qty + " " + f.unit + " · ผล" + RESULT_NAME[f.result], docNo);
@@ -850,7 +864,10 @@ function actionSubmit_(input, admin) {
     if (old.bill_photo && old.bill_photo !== f.bill_photo) dropped.push(old.bill_photo);
     if (old.inspector_sign && old.inspector_sign !== f.inspector_sign) dropped.push(old.inspector_sign);
     f.updated_at = now; f.updated_by = REQ_.actor;
-    if (!admin) { f.status = "pending"; f.inspected_at = now; }
+    if (!admin) { // back to the QC heads: the return details stay in the audit log
+      f.status = "pending"; f.inspected_at = now;
+      f.head = ""; f.return_reason = ""; f.returned_at = null;
+    }
     update_("inspections", old, f);
     row = old;
     REQ_.trashAfter = dropped;
