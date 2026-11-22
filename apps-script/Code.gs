@@ -1378,6 +1378,116 @@ function removeKeepWarmTrigger() {
   return { removed: removed };
 }
 
+/* ===================== catalog import =====================
+ * CatalogData.gs is generated from the approved workbooks. This importer is
+ * deliberately manual and idempotent: it matches Supplier names and item
+ * codes, never deletes history, and only fills numeric limits when the source
+ * actually contains a number. */
+function catalogText_(v) {
+  return phpTrim_(String(v === null || v === undefined ? "" : v)
+    .replace(/\u00a0/g, " ").replace(/[\t\r\n ]+/g, " "));
+}
+
+function catalogKey_(v) {
+  return catalogText_(v).toLowerCase();
+}
+
+function catalogActive_(v) {
+  return !(v === false || v === 0 || String(v || "").toLowerCase() === "0");
+}
+
+function catalogNumber_(v) {
+  if (v === null || v === undefined || v === "") return null;
+  var n = Number(v);
+  return isFinite(n) ? Math.round(n * 1000) / 1000 : null;
+}
+
+function importCatalog() {
+  var lock = LockService.getScriptLock();
+  var locked = false;
+  try {
+    lock.waitLock(30000);
+    locked = true;
+    resetRequest_("importCatalog");
+    var now = nowParts_().datetime;
+    var supplierResult = { added: 0, matched: 0, skipped: 0 };
+    var itemResult = { added: 0, matched: 0, disabled: 0, skipped: 0 };
+    var supplierRows = typeof CATALOG_SUPPLIERS !== "undefined" && Array.isArray(CATALOG_SUPPLIERS) ? CATALOG_SUPPLIERS : [];
+    var itemRows = typeof CATALOG_ITEMS !== "undefined" && Array.isArray(CATALOG_ITEMS) ? CATALOG_ITEMS : [];
+
+    var suppliers = table_("suppliers");
+    var suppliersByKey = {};
+    suppliers.rows.forEach(function (row) {
+      var key = catalogKey_(row.name);
+      if (key && !suppliersByKey[key]) suppliersByKey[key] = row;
+    });
+    var seenSuppliers = {};
+    supplierRows.forEach(function (raw) {
+      var name = catalogText_(raw && raw.name);
+      var key = catalogKey_(name);
+      if (!key || seenSuppliers[key]) { supplierResult.skipped++; return; }
+      seenSuppliers[key] = true;
+      var fields = { name: name, contact: catalogText_(raw && raw.contact), active: catalogActive_(raw && raw.active) ? 1 : 0,
+        updated_at: now, updated_by: "importCatalog" };
+      var row = suppliersByKey[key];
+      if (row) {
+        supplierResult.matched++;
+        update_("suppliers", row, fields);
+      } else {
+        supplierResult.added++;
+        row = insert_("suppliers", Object.assign({ sort: 0 }, fields));
+        suppliersByKey[key] = row;
+      }
+    });
+
+    var items = table_("items");
+    var itemsByKey = {};
+    items.rows.forEach(function (row) {
+      var key = catalogKey_(row.code);
+      if (key && !itemsByKey[key]) itemsByKey[key] = row;
+    });
+    var seenItems = {};
+    itemRows.forEach(function (raw) {
+      var code = catalogText_(raw && raw.code);
+      var name = catalogText_(raw && raw.name);
+      var key = catalogKey_(code);
+      var category = catalogText_(raw && raw.category);
+      var active = catalogActive_(raw && raw.active);
+      if (!key || !name || !category_(category) || seenItems[key]) { itemResult.skipped++; return; }
+      seenItems[key] = true;
+      if (!active) itemResult.disabled++;
+      var sourceMin = catalogNumber_(raw.wmin);
+      var sourceMax = catalogNumber_(raw.wmax);
+      var row = itemsByKey[key];
+      var fields = {
+        name: name, code: code, category: category, active: active ? 1 : 0,
+        wunit: catalogText_(raw.wunit) || (row && row.wunit) || "g",
+        unit: catalogText_(raw.unit) || (row && row.unit) || "ชิ้น",
+        updated_at: now, updated_by: "importCatalog"
+      };
+      if (sourceMin !== null) fields.wmin = sourceMin;
+      else if (!row) fields.wmin = null;
+      if (sourceMax !== null) fields.wmax = sourceMax;
+      else if (!row) fields.wmax = null;
+      if (row) {
+        itemResult.matched++;
+        update_("items", row, fields);
+      } else {
+        itemResult.added++;
+        row = insert_("items", fields);
+        itemsByKey[key] = row;
+      }
+    });
+    flush_();
+    var result = { suppliers: supplierResult, items: itemResult };
+    console.log(JSON.stringify(result));
+    return result;
+  } finally {
+    REQ_ = null;
+    if (locked) lock.releaseLock();
+  }
+}
+
 function insert_(name, obj) {
   var t = table_(name);
   var row = {};

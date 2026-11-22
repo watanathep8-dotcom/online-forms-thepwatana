@@ -10,8 +10,8 @@
 
 ## ติดตั้ง (ครั้งเดียว)
 
-1. สร้างโปรเจกต์ Apps Script "Online Forms Thepwatana" แล้ววาง `apps-script/Code.gs`
-2. รัน `setupSystem` (อนุญาตสิทธิ์ Sheets + Drive)
+1. สร้างโปรเจกต์ Apps Script "Online Forms Thepwatana" แล้ววาง `apps-script/Code.gs` และ `apps-script/CatalogData.gs`
+2. รัน `setupSystem` (อนุญาตสิทธิ์ Sheets + Drive) ถ้ายังไม่เคยสร้างฐานข้อมูล
 3. Project Settings → Script properties:
    - `FORM_QC_PASSWORD` — รหัสหัวหน้า QC (อนุมัติ / ตีกลับ)
    - `FORM_ADMIN_PASSWORD` — รหัสผู้ดูแลระบบ (ตั้งค่ารายชื่อ, แก้ไข / ลบใบ, Log)
@@ -22,7 +22,10 @@
 4. สร้าง OAuth Web Client ใน Google Cloud Console และเพิ่ม JavaScript origin ของ GitHub Pages เช่น `https://watanathep8-dotcom.github.io` จากนั้นใส่ Client ID เฉพาะส่วน public ใน `docs/config.js` ช่อง `googleClientId`
 5. Deploy → เว็บแอป: ดำเนินการในฐานะ "ฉัน", ผู้มีสิทธิ์เข้าถึง "ทุกคน" → ใส่ลิงก์ `/exec` ใน `docs/config.js`
 6. (แนะนำ) รัน `installKeepWarmTrigger` หนึ่งครั้ง
-7. เข้าเว็บ → ตั้งค่ารายชื่อ: เพิ่ม Supplier, บรรจุภัณฑ์ (หมวด + น้ำหนักที่ยอมรับ), หัวหน้า QC
+7. จาก Apps Script editor รัน `importCatalog()` หนึ่งครั้ง แล้วตรวจผลสรุปจำนวน `added / matched / disabled / skipped`; ฟังก์ชันจะไม่ลบข้อมูลเก่าและจะคง `id` เดิม
+8. เข้าเว็บ → ตั้งค่ารายชื่อเพื่อตรวจแก้หมวดหรือน้ำหนักที่ยังว่าง (ไฟล์ Excel ไม่มีค่า `wmin`/`wmax` จึงไม่สร้างตัวเลขขึ้นเอง)
+
+`CatalogData.gs` ใช้เฉพาะ `SUP+ลูกค้า` และ `PK-TW-PU-CU`; ชีต `ลูกค้า B2B` ไม่ถูกนำเข้า
 
 หน้าเว็บจะแสดง Google Login เป็นทางหลัก และเก็บช่องรหัสผ่านเดิมไว้เป็น fallback ชั่วคราวเท่านั้น รหัสผ่านและ Google credential ไม่ถูกเก็บใน browser; Apps Script จะตรวจ allowlist ใหม่ทุกคำขอที่ใช้สิทธิ์ หากนำอีเมลออก ให้ session เดิมหมดสิทธิ์ในการเรียกครั้งถัดไป
 

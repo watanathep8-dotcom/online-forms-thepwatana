@@ -248,6 +248,8 @@ function loadCode(gas) {
   const ctx = vm.createContext(Object.assign({}, gas));
   const src = fs.readFileSync(path.join(ROOT, "apps-script", "Code.gs"), "utf8");
   vm.runInContext(src, ctx, { filename: "Code.gs" });
+  const catalogSrc = fs.readFileSync(path.join(ROOT, "apps-script", "CatalogData.gs"), "utf8");
+  vm.runInContext(catalogSrc, ctx, { filename: "CatalogData.gs" });
   return ctx;
 }
 
@@ -327,6 +329,61 @@ test("setupSystem creates the spreadsheet (5 sheets with headers) and the Drive 
   assert.strictEqual(again.created, false);
   assert.strictEqual(state.created, 1);
   assert.strictEqual(Object.keys(state.folders).length, 1);
+});
+
+test("generated catalog data has the approved source counts and no invented weights", () => {
+  assert.strictEqual(ctx.CATALOG_SUPPLIERS.length, 61);
+  assert.strictEqual(ctx.CATALOG_ITEMS.length, 1279);
+  assert.strictEqual(ctx.CATALOG_ITEMS.filter(item => item.active === 0).length, 23);
+  assert.ok(ctx.CATALOG_ITEMS.every(item => item.wmin === null && item.wmax === null));
+  assert.ok(ctx.CATALOG_SUPPLIERS.every(item => !/B2B/i.test(item.name)));
+});
+
+test("catalog importer is idempotent, retains IDs, disables discontinued rows, and leaves missing weights null", () => {
+  const catalog = createGas();
+  const catalogCtx = loadCode(catalog.gas);
+  catalogCtx.setupSystem();
+  const catalogSheet = n => catalog.state.spreadsheets[catalog.state.props.FORM_SPREADSHEET_ID].getSheetByName(n);
+  catalogCtx.CATALOG_SUPPLIERS = [
+    { name: "  Supplier A\u00a0", contact: "", active: 1 },
+    { name: "Supplier B", contact: "", active: 1 },
+    { name: "", contact: "", active: 1 }
+  ];
+  catalogCtx.CATALOG_ITEMS = [
+    { code: "PK-EXIST-001", name: "ขวดเดิม", active: 1, category: "bottle", wmin: null, wmax: null, wunit: "g", unit: "ชิ้น" },
+    { code: "PK-DISC-001", name: "ยุติการสั่ง กล่องเดิม", active: 0, category: "box", wmin: null, wmax: null, wunit: "g", unit: "ชิ้น" },
+    { code: "PK-NOWEIGHT", name: "ฟิล์มไม่มีน้ำหนัก", active: 1, category: "film", wmin: null, wmax: null, wunit: "", unit: "ชิ้น" },
+    { code: "", name: "ไม่มีรหัส", active: 1, category: "film", wmin: null, wmax: null, wunit: "", unit: "ชิ้น" }
+  ];
+  const first = JSON.parse(JSON.stringify(catalogCtx.importCatalog()));
+  assert.deepStrictEqual(first.suppliers, { added: 2, matched: 0, skipped: 1 });
+  assert.deepStrictEqual(first.items, { added: 3, matched: 0, disabled: 1, skipped: 1 });
+  const existingId = catalogSheet("items").data.find(row => row[2] === "PK-EXIST-001")[0];
+  const noWeight = catalogSheet("items").data.find(row => row[2] === "PK-NOWEIGHT");
+  assert.strictEqual(noWeight[4], "");
+  assert.strictEqual(noWeight[5], "");
+  assert.strictEqual(catalogSheet("items").data.find(row => row[2] === "PK-DISC-001")[8], 0);
+
+  catalogCtx.CATALOG_SUPPLIERS = [
+    { name: "Supplier A", contact: "อัปเดต", active: 1 },
+    { name: "Supplier B", contact: "", active: 1 },
+    { name: "Supplier C", contact: "", active: 1 }
+  ];
+  catalogCtx.CATALOG_ITEMS = [
+    { code: "PK-EXIST-001", name: "ขวดเดิมแก้ชื่อ", active: 1, category: "bottle", wmin: null, wmax: null, wunit: "g", unit: "ชิ้น" },
+    { code: "PK-DISC-001", name: "ยุติการสั่ง กล่องเดิม", active: 0, category: "box", wmin: null, wmax: null, wunit: "g", unit: "ชิ้น" },
+    { code: "PK-NOWEIGHT", name: "ฟิล์มไม่มีน้ำหนัก", active: 1, category: "film", wmin: null, wmax: null, wunit: "", unit: "ชิ้น" },
+    { code: "PK-NEW-001", name: "ถุงใหม่", active: 1, category: "bag", wmin: null, wmax: null, wunit: "g", unit: "ชิ้น" }
+  ];
+  const second = JSON.parse(JSON.stringify(catalogCtx.importCatalog()));
+  assert.deepStrictEqual(second.suppliers, { added: 1, matched: 2, skipped: 0 });
+  assert.deepStrictEqual(second.items, { added: 1, matched: 3, disabled: 1, skipped: 0 });
+  const rows = catalogSheet("items").data.slice(1);
+  assert.strictEqual(rows.filter(row => row[2] === "PK-EXIST-001").length, 1);
+  assert.strictEqual(rows.find(row => row[2] === "PK-EXIST-001")[0], existingId);
+  assert.strictEqual(rows.find(row => row[2] === "PK-EXIST-001")[1], "ขวดเดิมแก้ชื่อ");
+  assert.strictEqual(rows.find(row => row[2] === "PK-NOWEIGHT")[4], "");
+  assert.strictEqual(rows.find(row => row[2] === "PK-NOWEIGHT")[5], "");
 });
 
 test("login: qc and admin passwords give their roles; wrong password refused", () => {
