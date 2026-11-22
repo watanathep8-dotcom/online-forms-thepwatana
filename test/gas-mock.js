@@ -532,13 +532,12 @@ test("submit: new sheet pending, PI- number, AQL from lot, weights avg / out cou
   FIRST = r;
 });
 
-test("submit validation: required fields, supplier / item from the list, bill photo + signature required, fail needs detail", () => {
+test("submit validation: required fields, supplier / item from the list, bill photo + signature required, fail needs detail, Lot / Batch optional", () => {
   const n = dataRows("inspections"), files = liveFiles();
   err(pub("submit", form({ supplier_id: "" })), /กรุณาเลือกSupplier/);
   err(pub("submit", form({ item_id: 999 })), /กรุณาเลือกรายการบรรจุภัณฑ์/);
   err(pub("submit", form({ po_no: " " })), /กรุณากรอกเลขที่ใบสั่งซื้อ/);
   err(pub("submit", form({ invoice_no: "" })), /เลขที่ใบส่งของ/);
-  err(pub("submit", form({ lot_no: "" })), /Lot/);
   err(pub("submit", form({ lot_qty: "0" })), /จำนวนที่ส่งมอบต้องอยู่ระหว่าง 1/);
   err(pub("submit", form({ lot_qty: "abc" })), /จำนวนเต็ม/);
   err(pub("submit", form({ defects: 201 })), /ของเสียที่พบต้องอยู่ระหว่าง 0 ถึง 200/);

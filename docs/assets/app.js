@@ -352,7 +352,6 @@ async function pageForm(editId) {
       <label class="fld"><span>เลขที่ใบส่งของ (Invoice / Delivery Note) <em>*</em></span><input class="inp" name="invoice_no" maxlength="60" value="${esc(old?.invoice_no)}" placeholder="DN-2026-XXXX" required></label>
       <label class="fld"><span>จำนวนที่ส่งมอบ (Lot / Order Qty) <em>*</em></span><span class="row2 r21"><input class="inp" name="lot_qty" inputmode="numeric" value="${old ? old.lot_qty : ''}" placeholder="เช่น 5000" required><input class="inp" name="unit" maxlength="30" value="${esc(old?.unit || 'ชิ้น')}"></span></label>
       <label class="fld">จำนวนสุ่มตรวจ (Sample Size / AQL)<input class="inp" id="sampleOut" readonly placeholder="คำนวณจากจำนวนที่ส่งมอบ"></label>
-      <label class="fld"><span>เลขที่ Lot / Batch No. <em>*</em></span><input class="inp" name="lot_no" maxlength="60" value="${esc(old?.lot_no)}" placeholder="LOT-20261113-01" required></label>
     </div>
   </section>
 
@@ -634,7 +633,7 @@ async function pageForm(editId) {
     e.preventDefault();
     await photoQueue;
     const miss = [];
-    [['supplier_id', 'Supplier'], ['item_id', 'รายการ Packaging'], ['po_no', 'เลขที่ PO'], ['invoice_no', 'เลขที่ใบส่งของ'], ['lot_qty', 'จำนวนที่ส่งมอบ'], ['lot_no', 'เลขที่ Lot']]
+    [['supplier_id', 'Supplier'], ['item_id', 'รายการ Packaging'], ['po_no', 'เลขที่ PO'], ['invoice_no', 'เลขที่ใบส่งของ'], ['lot_qty', 'จำนวนที่ส่งมอบ']]
       .forEach(([n, t]) => { const ok = String(el(n).value).trim() !== ''; el(n).classList.toggle('need', !ok); if (!ok) miss.push(t); });
     if (!aqlOf(el('lot_qty').value)) miss.push('จำนวนที่ส่งมอบ (จำนวนเต็ม)');
     if (!state.cat_result) miss.push('ผล Pass / Fail ของหมวดบรรจุภัณฑ์');
@@ -648,7 +647,7 @@ async function pageForm(editId) {
     const body = {
       received_date: el('received_date').value, received_time: el('received_time').value,
       supplier_id: el('supplier_id').value, item_id: el('item_id').value, po_no: el('po_no').value, invoice_no: el('invoice_no').value,
-      lot_qty: el('lot_qty').value, unit: el('unit').value, lot_no: el('lot_no').value, defects: el('defects').value || '0',
+      lot_qty: el('lot_qty').value, unit: el('unit').value, lot_no: old?.lot_no || '', defects: el('defects').value || '0',
       checks: catOf(catKey()).checks.map((_, i) => !!state.checks[i]), cat_result: state.cat_result, strength: state.strength,
       weights: state.weights, wmin: state.wmin ?? '', wmax: state.wmax ?? '', wunit: state.wunit,
       result: res.value, defect_detail: el('defect_detail').value, photos: f.photos, bill_photo: f.bill,

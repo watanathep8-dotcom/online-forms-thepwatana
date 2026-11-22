@@ -889,7 +889,9 @@ function actionSubmit_(input, admin) {
   f.item_id = item.id; f.item_name = sameItem ? old.item_name : item.name; f.item_code = sameItem ? old.item_code : item.code; f.category = cat.key;
   f.po_no = requiredText_(input, "po_no", 60, "เลขที่ใบสั่งซื้อ (PO)");
   f.invoice_no = requiredText_(input, "invoice_no", 60, "เลขที่ใบส่งของ");
-  f.lot_no = requiredText_(input, "lot_no", 60, "เลขที่ Lot / Batch");
+  // Lot / Batch is optional in the entry form. Preserve an existing value when
+  // editing an older sheet so removing the field does not erase history.
+  f.lot_no = textIn_(input, "lot_no", 60, "เลขที่ Lot / Batch") || (old ? String(old.lot_no || "") : "");
   f.lot_qty = intIn_(input.lot_qty, "จำนวนที่ส่งมอบ", 1, MAX_LOT);
   f.unit = textIn_(input, "unit", 30, "หน่วย") || item.unit || "ชิ้น";
   var plan = aql_(f.lot_qty);
