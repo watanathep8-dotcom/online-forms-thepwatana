@@ -334,9 +334,10 @@ test("setupSystem creates the spreadsheet (5 sheets with headers) and the Drive 
 test("generated catalog data has the approved source counts and no invented weights", () => {
   assert.strictEqual(ctx.CATALOG_SUPPLIERS.length, 61);
   assert.strictEqual(ctx.CATALOG_ITEMS.length, 1279);
-  assert.strictEqual(ctx.CATALOG_ITEMS.filter(item => item.active === 0).length, 23);
+  assert.strictEqual(ctx.CATALOG_ITEMS.filter(item => item.active === 0).length, 30);
   assert.ok(ctx.CATALOG_ITEMS.every(item => item.wmin === null && item.wmax === null));
   assert.ok(ctx.CATALOG_SUPPLIERS.every(item => !/B2B/i.test(item.name)));
+  assert.ok(ctx.CATALOG_ITEMS.filter(item => item.name.startsWith("ไส้คั่น")).every(item => item.category === "box"));
 });
 
 test("catalog importer is idempotent, retains IDs, disables discontinued rows, and leaves missing weights null", () => {
@@ -363,9 +364,16 @@ test("catalog importer is idempotent, retains IDs, disables discontinued rows, a
   assert.strictEqual(noWeight[4], "");
   assert.strictEqual(noWeight[5], "");
   assert.strictEqual(catalogSheet("items").data.find(row => row[2] === "PK-DISC-001")[8], 0);
+  catalogSheet("items").data[1][4] = 0.9;
+  catalogSheet("items").data[1][5] = 1.1;
+  catalogSheet("items").data[1][6] = "kg";
+  catalogSheet("suppliers").data[1][2] = "contact kept";
+  const duplicate = new Array(catalogSheet("items").data[0].length).fill("");
+  duplicate[0] = 999; duplicate[1] = "duplicate historical row"; duplicate[2] = "PK-DISC-001"; duplicate[3] = "box"; duplicate[8] = 1;
+  catalogSheet("items").data.push(duplicate);
 
   catalogCtx.CATALOG_SUPPLIERS = [
-    { name: "Supplier A", contact: "อัปเดต", active: 1 },
+    { name: "Supplier A", contact: "", active: 1 },
     { name: "Supplier B", contact: "", active: 1 },
     { name: "Supplier C", contact: "", active: 1 }
   ];
@@ -384,6 +392,9 @@ test("catalog importer is idempotent, retains IDs, disables discontinued rows, a
   assert.strictEqual(rows.find(row => row[2] === "PK-EXIST-001")[1], "ขวดเดิมแก้ชื่อ");
   assert.strictEqual(rows.find(row => row[2] === "PK-NOWEIGHT")[4], "");
   assert.strictEqual(rows.find(row => row[2] === "PK-NOWEIGHT")[5], "");
+  assert.deepStrictEqual(rows.find(row => row[2] === "PK-EXIST-001").slice(4, 7), [0.9, 1.1, "kg"]);
+  assert.strictEqual(catalogSheet("suppliers").data.find(row => row[1] === "Supplier A")[2], "contact kept");
+  assert.ok(rows.filter(row => row[2] === "PK-DISC-001").every(row => row[8] === 0));
 });
 
 test("login: qc and admin passwords give their roles; wrong password refused", () => {
@@ -755,6 +766,8 @@ test("frontend files parse; no stored passwords; storage keys prefixed oft_", ()
   assert.ok(/type="hidden" name="\$\{field\}"/.test(app), "numeric catalog IDs are not preserved");
   assert.ok(/picker-menu/.test(app) && /ArrowDown/.test(app) && /Escape/.test(app), "picker keyboard behavior is missing");
   assert.ok(/\.filter\(i => i\.active \|\| \(old && i\.id === old\.item_id\)\)/.test(app), "inactive historical items are not handled explicitly");
+  assert.ok(/pendingPhotos/.test(app) && /photoQueue/.test(app) && /await photoQueue/.test(app), "photo additions are not serialized before submit");
+  assert.ok(/committedId/.test(app), "selecting the current item is not guarded");
   assert.ok(/accounts\.google\.com\/gsi\/client/.test(html), "Google Identity Services script is not loaded");
   const cfg = {};
   new Function("window", fs.readFileSync(path.join(ROOT, "docs/config.js"), "utf8"))(cfg);

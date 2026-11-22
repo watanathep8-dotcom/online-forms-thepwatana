@@ -1427,9 +1427,13 @@ function importCatalog() {
       var key = catalogKey_(name);
       if (!key || seenSuppliers[key]) { supplierResult.skipped++; return; }
       seenSuppliers[key] = true;
-      var fields = { name: name, contact: catalogText_(raw && raw.contact), active: catalogActive_(raw && raw.active) ? 1 : 0,
-        updated_at: now, updated_by: "importCatalog" };
       var row = suppliersByKey[key];
+      var contact = catalogText_(raw && raw.contact);
+      var fields = { name: name, active: catalogActive_(raw && raw.active) ? 1 : 0,
+        updated_at: now, updated_by: "importCatalog" };
+      // The approved Supplier workbook contains names only. Never erase a
+      // contact that an administrator entered in Settings.
+      if (contact || !row) fields.contact = contact;
       if (row) {
         supplierResult.matched++;
         update_("suppliers", row, fields);
@@ -1444,7 +1448,7 @@ function importCatalog() {
     var itemsByKey = {};
     items.rows.forEach(function (row) {
       var key = catalogKey_(row.code);
-      if (key && !itemsByKey[key]) itemsByKey[key] = row;
+      if (key) (itemsByKey[key] = itemsByKey[key] || []).push(row);
     });
     var seenItems = {};
     itemRows.forEach(function (raw) {
@@ -1458,24 +1462,33 @@ function importCatalog() {
       if (!active) itemResult.disabled++;
       var sourceMin = catalogNumber_(raw.wmin);
       var sourceMax = catalogNumber_(raw.wmax);
-      var row = itemsByKey[key];
-      var fields = {
-        name: name, code: code, category: category, active: active ? 1 : 0,
-        wunit: catalogText_(raw.wunit) || (row && row.wunit) || "g",
-        unit: catalogText_(raw.unit) || (row && row.unit) || "ชิ้น",
-        updated_at: now, updated_by: "importCatalog"
+      var sourceWunit = catalogText_(raw.wunit);
+      var sourceUnit = catalogText_(raw.unit);
+      var existingRows = itemsByKey[key] || [];
+      var sourceHasWeight = sourceMin !== null || sourceMax !== null;
+      var fieldsFor = function (row) {
+        var fields = {
+          name: name, code: code, category: category, active: active ? 1 : 0,
+          // A null weight source has no authority over an existing unit.
+          wunit: sourceHasWeight ? (sourceWunit || (row && row.wunit) || "g") : row ? String(row.wunit || "") : (sourceWunit || "g"),
+          unit: row ? (String(row.unit || "") || sourceUnit || "ชิ้น") : (sourceUnit || "ชิ้น"),
+          updated_at: now, updated_by: "importCatalog"
+        };
+        if (sourceMin !== null) fields.wmin = sourceMin;
+        else if (!row) fields.wmin = null;
+        if (sourceMax !== null) fields.wmax = sourceMax;
+        else if (!row) fields.wmax = null;
+        return fields;
       };
-      if (sourceMin !== null) fields.wmin = sourceMin;
-      else if (!row) fields.wmin = null;
-      if (sourceMax !== null) fields.wmax = sourceMax;
-      else if (!row) fields.wmax = null;
-      if (row) {
+      if (existingRows.length) {
         itemResult.matched++;
-        update_("items", row, fields);
+        // Keep every historical row for a code, but apply discontinued status
+        // to all of them so no duplicate remains selectable.
+        existingRows.forEach(function (row) { update_("items", row, fieldsFor(row)); });
       } else {
         itemResult.added++;
-        row = insert_("items", fields);
-        itemsByKey[key] = row;
+        var row = insert_("items", fieldsFor(null));
+        itemsByKey[key] = [row];
       }
     });
     flush_();

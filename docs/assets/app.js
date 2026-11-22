@@ -430,14 +430,18 @@ async function pageForm(editId) {
     const input = $('#' + kind + 'Picker');
     const hidden = el(kind + '_id');
     const menu = $('#' + kind + 'PickerMenu');
+    let committedId = String(hidden.value || '');
     const normalize = value => String(value || '').trim().toLocaleLowerCase();
     const searchable = item => normalize([item.name, item.code, label(item)].filter(Boolean).join(' '));
     const hide = () => { menu.hidden = true; input.setAttribute('aria-expanded', 'false'); };
     const select = item => {
-      hidden.value = String(item.id);
+      const nextId = String(item.id);
+      const changed = committedId !== nextId;
+      hidden.value = nextId;
       input.value = label(item);
+      committedId = nextId;
       hide();
-      hidden.dispatchEvent(new Event('change', { bubbles: true }));
+      if (changed) hidden.dispatchEvent(new Event('change', { bubbles: true }));
     };
     const paint = () => {
       const query = normalize(input.value);
@@ -571,7 +575,7 @@ async function pageForm(editId) {
   }
   function renderPhotos() {
     const photoCount = $('#photoCount');
-    if (photoCount) photoCount.textContent = f.photos.length + '/' + b.max_photos;
+    if (photoCount) photoCount.textContent = (f.photos.length + pendingPhotos) + '/' + b.max_photos;
     $('#photos').innerHTML = f.photos.length ? f.photos.map((p, i) => `<figure><img ${/^data:/.test(p) ? `src="${p}" class="ok"` : `data-fid="${esc(p)}"`} alt="รูปที่ ${i + 1}"><button type="button" class="x" data-rm="${i}" aria-label="ลบรูป"><i class="fa-solid fa-xmark"></i></button></figure>`).join('')
       : '<div class="drop"><i class="fa-regular fa-image"></i>ยังไม่มีภาพถ่ายประกอบ — กด “ถ่ายภาพ” หรือ “อัปโหลดรูป”</div>';
     $$('[data-rm]', $('#photos')).forEach(x => x.onclick = () => { f.photos.splice(+x.dataset.rm, 1); renderPhotos(); });
@@ -582,12 +586,24 @@ async function pageForm(editId) {
     if ($('#billRm')) $('#billRm').onclick = () => { f.bill = ''; renderBill(); };
     hydrateImages($('#bill'));
   }
-  async function addPhotos(files) {
+  let pendingPhotos = 0;
+  let photoQueue = Promise.resolve();
+  function addPhotos(files) {
+    const reserved = [];
     for (const file of files) {
-      if (f.photos.length >= b.max_photos) { toast('แนบรูปได้ไม่เกิน ' + b.max_photos + ' รูป', 'warn'); break; }
-      try { f.photos.push(await resizeImage(file)); } catch (e) { toast(e.message, 'err'); }
+      if (f.photos.length + pendingPhotos >= b.max_photos) { toast('แนบรูปได้ไม่เกิน ' + b.max_photos + ' รูป', 'warn'); break; }
+      pendingPhotos++;
+      reserved.push(file);
     }
+    photoQueue = photoQueue.then(async () => {
+      for (const file of reserved) {
+        try { f.photos.push(await resizeImage(file)); } catch (e) { toast(e.message, 'err'); }
+        finally { pendingPhotos--; renderPhotos(); }
+      }
+      renderPhotos();
+    });
     renderPhotos();
+    return photoQueue;
   }
   $('#camIn').onchange = e => { addPhotos([...e.target.files]); e.target.value = ''; };
   $('#upIn').onchange = e => { addPhotos([...e.target.files]); e.target.value = ''; };
@@ -616,6 +632,7 @@ async function pageForm(editId) {
 
   form.onsubmit = async e => {
     e.preventDefault();
+    await photoQueue;
     const miss = [];
     [['supplier_id', 'Supplier'], ['item_id', 'รายการ Packaging'], ['po_no', 'เลขที่ PO'], ['invoice_no', 'เลขที่ใบส่งของ'], ['lot_qty', 'จำนวนที่ส่งมอบ'], ['lot_no', 'เลขที่ Lot']]
       .forEach(([n, t]) => { const ok = String(el(n).value).trim() !== ''; el(n).classList.toggle('need', !ok); if (!ok) miss.push(t); });
