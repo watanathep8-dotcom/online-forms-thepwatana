@@ -326,7 +326,17 @@ async function pageForm(editId) {
     date: old ? old.received_at.slice(0, 10) : np.date, time: old ? old.received_at.slice(11, 16) : np.time,
     photos: old ? old.photos.slice() : [], bill: old ? old.bill_photo : '', sign: old ? old.inspector_sign : '',
   };
-  const opt = (list, sel, lab) => `<option value="">— เลือก —</option>` + list.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(lab(x))}</option>`).join('');
+  const supplierLabel = s => s ? s.name + (s.active ? '' : ' (ปิดใช้งาน)') : '';
+  const itemLabel = i => i ? i.name + (i.code ? ' · ' + i.code : '') + (i.active ? '' : ' (ปิดใช้งาน)') : '';
+  const picker = (kind, list, selected, label, placeholder) => {
+    const chosen = list.find(x => x.id === selected);
+    const field = kind + '_id';
+    return `<div class="picker" data-picker="${kind}">
+      <input class="inp picker-input" id="${kind}Picker" type="text" value="${esc(label(chosen))}" placeholder="${esc(placeholder)}" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="${kind}PickerMenu">
+      <input type="hidden" name="${field}" value="${chosen ? chosen.id : ''}">
+      <div class="picker-menu" id="${kind}PickerMenu" role="listbox" hidden></div>
+    </div>`;
+  };
   view.innerHTML = `
   ${old && old.status === 'returned' ? `<div class="banner red"><i class="fa-solid fa-rotate-left"></i><div><b>${esc(old.doc_no)} ถูกตีกลับ</b> โดย ${esc(old.head)} · ${dtTH(old.returned_at)}<br>เหตุผล: ${esc(old.return_reason)}</div></div>` : ''}
   ${old && old.status !== 'returned' ? `<div class="banner blue"><i class="fa-solid fa-user-shield"></i><div><b>ผู้ดูแลระบบแก้ไข ${esc(old.doc_no)}</b> · สถานะคงเดิม (${STATUS[old.status].t})</div></div>` : ''}
@@ -335,8 +345,8 @@ async function pageForm(editId) {
     <h2><span class="num">1</span>ข้อมูลการรับเข้า</h2>
     <div class="grid2">
       <label class="fld"><span>วันที่และเวลาที่รับเข้า <em>*</em></span><span class="row2"><input type="date" class="inp" name="received_date" value="${f.date}" required><input type="time" class="inp" name="received_time" value="${f.time}" required></span></label>
-      <label class="fld"><span>ชื่อบริษัท Supplier / ผู้จัดส่ง <em>*</em></span><select class="inp" name="supplier_id" required>${opt(sups, old?.supplier_id, s => s.name + (s.active ? '' : ' (ปิดใช้งาน)'))}</select></label>
-      <label class="fld"><span>ชื่อรายการ Packaging <em>*</em></span><select class="inp" name="item_id" required>${opt(items, old?.item_id, i => i.name + (i.code ? ' · ' + i.code : '') + (i.active ? '' : ' (ปิดใช้งาน)'))}</select></label>
+      <div class="fld"><span>ชื่อบริษัท Supplier / ผู้จัดส่ง <em>*</em></span>${picker('supplier', sups, old?.supplier_id, supplierLabel, 'ค้นหา Supplier หรือชื่อบริษัท')}</div>
+      <div class="fld"><span>ชื่อรายการ Packaging <em>*</em></span>${picker('item', items, old?.item_id, itemLabel, 'ค้นหาชื่อหรือรหัส Packaging')}</div>
       <label class="fld">รหัสสินค้า (Item Code / SKU)<input class="inp" id="itemCode" readonly placeholder="เลือกรายการก่อน"></label>
       <label class="fld"><span>เลขที่ใบสั่งซื้อ (PO No.) <em>*</em></span><input class="inp" name="po_no" maxlength="60" value="${esc(old?.po_no)}" placeholder="PO-2026-XXXX" required></label>
       <label class="fld"><span>เลขที่ใบส่งของ (Invoice / Delivery Note) <em>*</em></span><input class="inp" name="invoice_no" maxlength="60" value="${esc(old?.invoice_no)}" placeholder="DN-2026-XXXX" required></label>
@@ -416,6 +426,56 @@ async function pageForm(editId) {
 
   const form = $('#pf');
   const el = n => form.elements[n];
+  function setupPicker(kind, list, label) {
+    const input = $('#' + kind + 'Picker');
+    const hidden = el(kind + '_id');
+    const menu = $('#' + kind + 'PickerMenu');
+    const normalize = value => String(value || '').trim().toLocaleLowerCase();
+    const searchable = item => normalize([item.name, item.code, label(item)].filter(Boolean).join(' '));
+    const hide = () => { menu.hidden = true; input.setAttribute('aria-expanded', 'false'); };
+    const select = item => {
+      hidden.value = String(item.id);
+      input.value = label(item);
+      hide();
+      hidden.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const paint = () => {
+      const query = normalize(input.value);
+      const matches = list.filter(item => !query || searchable(item).includes(query)).slice(0, 80);
+      menu.innerHTML = matches.length ? matches.map(item => `<button type="button" class="picker-option" role="option" data-id="${item.id}"><span>${esc(item.name)}</span>${item.code ? `<small>${esc(item.code)}</small>` : ''}${item.active ? '' : '<em>ปิดใช้งาน</em>'}</button>`).join('') : '<div class="picker-empty">ไม่พบรายการที่ค้นหา</div>';
+      menu.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      $$('.picker-option', menu).forEach(option => {
+        const item = list.find(x => String(x.id) === option.dataset.id);
+        option.onmousedown = ev => { ev.preventDefault(); if (item) select(item); };
+        option.onclick = () => { if (item) select(item); };
+      });
+    };
+    input.onfocus = () => { input.select(); paint(); };
+    input.oninput = () => { hidden.value = ''; paint(); };
+    input.onkeydown = ev => {
+      if (ev.key === 'Escape') { hide(); return; }
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        $('.picker-option', menu)?.focus();
+      }
+      if (ev.key === 'Enter') {
+        const first = $('.picker-option', menu);
+        if (first && !menu.hidden) { ev.preventDefault(); first.click(); }
+      }
+    };
+    menu.onkeydown = ev => {
+      const options = $$('.picker-option', menu);
+      const index = options.indexOf(document.activeElement);
+      if (ev.key === 'Escape') { ev.preventDefault(); hide(); input.focus(); }
+      if (ev.key === 'ArrowDown' && options.length) { ev.preventDefault(); options[Math.min(options.length - 1, index + 1)].focus(); }
+      if (ev.key === 'ArrowUp' && options.length) { ev.preventDefault(); options[Math.max(0, index - 1)].focus(); }
+    };
+    input.onblur = () => setTimeout(() => { if (!menu.contains(document.activeElement)) hide(); }, 120);
+    return { input, hidden };
+  }
+  setupPicker('supplier', sups, supplierLabel);
+  setupPicker('item', items, itemLabel);
   const state = { checks: old ? old.checks.slice() : [], cat_result: old?.cat_result || '', strength: old?.strength || '', weights: old ? old.weights.slice() : [], wmin: old?.wmin ?? null, wmax: old?.wmax ?? null, wunit: old?.wunit || 'g' };
   const pad = signPad($('#signPad'));
   const curItem = () => b.items.find(i => i.id === Number(el('item_id').value));

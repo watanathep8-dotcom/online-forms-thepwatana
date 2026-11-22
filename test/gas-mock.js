@@ -751,6 +751,10 @@ test("frontend files parse; no stored passwords; storage keys prefixed oft_", ()
   assert.ok(app.indexOf('<span class="num">2</span>') < app.indexOf('ภาพถ่ายประกอบการตรวจรับ'), "photo evidence is not after criteria/AQL");
   assert.ok(app.indexOf('ภาพถ่ายประกอบการตรวจรับ') < app.indexOf('ผลการตรวจรับและการลงนาม'), "result/signature section is not after photos");
   assert.ok(/photoCount/.test(app), "photo counter is missing");
+  assert.ok(/data-picker="\$\{kind\}"/.test(app) && /setupPicker\('supplier'/.test(app) && /setupPicker\('item'/.test(app), "catalog pickers are missing");
+  assert.ok(/type="hidden" name="\$\{field\}"/.test(app), "numeric catalog IDs are not preserved");
+  assert.ok(/picker-menu/.test(app) && /ArrowDown/.test(app) && /Escape/.test(app), "picker keyboard behavior is missing");
+  assert.ok(/\.filter\(i => i\.active \|\| \(old && i\.id === old\.item_id\)\)/.test(app), "inactive historical items are not handled explicitly");
   assert.ok(/accounts\.google\.com\/gsi\/client/.test(html), "Google Identity Services script is not loaded");
   const cfg = {};
   new Function("window", fs.readFileSync(path.join(ROOT, "docs/config.js"), "utf8"))(cfg);
