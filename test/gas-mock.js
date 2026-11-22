@@ -543,9 +543,12 @@ test("submit validation: required fields, supplier / item from the list, bill ph
   assert.strictEqual(liveFiles(), files); // nothing reached Drive
 });
 
-test("photo limits: more than 8 photos or a non-image refused, nothing written", () => {
+test("photo limits: 25 photos are accepted, the 26th is refused, and nothing is written on rejection", () => {
   const n = dataRows("inspections"), files = liveFiles();
-  err(pub("submit", form({ photos: Array(9).fill(IMG) })), /ไม่เกิน 8 รูป/);
+  const accepted = okData(pub("submit", form({ photos: Array(25).fill(IMG), lot_no: "LOT-25-PHOTOS", req_id: "photo-limit-25" })));
+  assert.strictEqual(okData(pub("inspection", { id: accepted.id })).inspection.photos.length, 25);
+  okData(adm("inspection_delete", { id: accepted.id }));
+  err(pub("submit", form({ photos: Array(26).fill(IMG), req_id: "photo-limit-26" })), /ไม่เกิน 25 รูป/);
   err(pub("submit", form({ photos: ["data:application/pdf;base64,AAAA"] })), /ต้องเป็นรูปภาพ/);
   err(pub("submit", form({ photos: ["not-an-image"] })), /ต้องเป็นรูปภาพ/);
   err(pub("submit", form({ bill_photo: "data:image/jpeg;base64," + "A".repeat(4 * 1024 * 1024 + 8) })), /รูปใหญ่เกินไป/);
@@ -744,6 +747,10 @@ test("frontend files parse; no stored passwords; storage keys prefixed oft_", ()
   assert.ok(/google\.accounts\.id\.initialize/.test(app), "Google Identity Services is not initialized");
   assert.ok(/credential/.test(app), "Google credential is not sent to the API");
   assert.ok(/legacyPasswordLogin/.test(app), "legacy fallback visibility is not controlled by config");
+  assert.ok(!/state\.autoResult/.test(app), "AQL still auto-selects the overall result");
+  assert.ok(app.indexOf('<span class="num">2</span>') < app.indexOf('ภาพถ่ายประกอบการตรวจรับ'), "photo evidence is not after criteria/AQL");
+  assert.ok(app.indexOf('ภาพถ่ายประกอบการตรวจรับ') < app.indexOf('ผลการตรวจรับและการลงนาม'), "result/signature section is not after photos");
+  assert.ok(/photoCount/.test(app), "photo counter is missing");
   assert.ok(/accounts\.google\.com\/gsi\/client/.test(html), "Google Identity Services script is not loaded");
   const cfg = {};
   new Function("window", fs.readFileSync(path.join(ROOT, "docs/config.js"), "utf8"))(cfg);

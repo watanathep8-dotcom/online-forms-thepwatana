@@ -350,10 +350,8 @@ async function pageForm(editId) {
     <h2><span class="num">2</span>เกณฑ์การตรวจสอบทางกายภาพแยกตามหมวดหมู่บรรจุภัณฑ์ <small>(Inspection Criteria)</small></h2>
     <p class="hint">หมวดถูกเลือกให้อัตโนมัติตามรายการบรรจุภัณฑ์ — ทำเครื่องหมายรายการที่ตรวจแล้ว และเลือกผล Pass / Fail</p>
     <div class="tbl-wrap"><table class="crit" id="critTbl"></table></div>
-  </section>
-
-  <section class="card sec">
-    <h2><span class="num">3</span>ระดับการตรวจสอบตามมาตรฐาน AQL</h2>
+    <div class="form-subsection">
+    <h3>ระดับการตรวจสอบตามมาตรฐาน AQL</h3>
     <div class="aql-strip">
       <div><small>ระดับการตรวจสอบแบบทั่วไป</small><b>ระดับ ${esc(b.aql.level)}</b></div>
       <div><small>ระดับคุณภาพที่ยอมรับ (AQL)</small><b>${esc(b.aql.value)}</b></div>
@@ -375,20 +373,24 @@ async function pageForm(editId) {
       ${b.aql.table.map(r => `<tr><td>${fmt(r[0])} – ${fmt(r[1])}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('')}
       <tr><td>10,001 ขึ้นไป</td><td>L</td><td>200</td><td>21</td><td>22</td></tr></tbody></table></details>
     <div id="weightBox"></div>
+    </div>
   </section>
 
   <section class="card sec">
-    <h2><span class="num">4</span>ผลการตรวจรับ หลักฐาน และการลงนาม</h2>
+    <h2><span class="num">3</span>ภาพถ่ายประกอบการตรวจรับ</h2>
+    <div class="sub-h"><b><i class="fa-solid fa-camera"></i> หลักฐานระหว่างตรวจสอบ (Inspection Photos &amp; Evidence)</b>
+      <span class="photo-tools"><strong id="photoCount">0/${b.max_photos}</strong><label class="btn sm primary"><i class="fa-solid fa-camera"></i> ถ่ายภาพ<input type="file" accept="image/*" capture="environment" hidden id="camIn"></label>
+      <label class="btn sm dark"><i class="fa-solid fa-upload"></i> อัปโหลดรูป<input type="file" accept="image/*" multiple hidden id="upIn"></label></span></div>
+    <p class="hint">ถ่ายภาพรถขนส่ง ป้าย Label สภาพสินค้า หรือข้อบกพร่องที่พบ (ไม่เกิน ${b.max_photos} รูป) — รองรับเอกสารหลายชุด</p>
+    <div class="photos" id="photos"></div>
+  </section>
+
+  <section class="card sec">
+    <h2><span class="num">4</span>ผลการตรวจรับและการลงนาม</h2>
     <div class="fld"><span>ผลการตรวจรับรวม <em>*</em></span>
       <div class="seg" id="resultSeg"><label><input type="radio" name="result" value="pass" ${old?.result === 'pass' ? 'checked' : ''}><span class="g"><i class="fa-solid fa-check"></i> ผ่าน</span></label><label><input type="radio" name="result" value="fail" ${old?.result === 'fail' ? 'checked' : ''}><span class="r"><i class="fa-solid fa-xmark"></i> ไม่ผ่าน</span></label></div>
       <small class="hint" id="autoHint"></small></div>
     <label class="fld">รายละเอียดข้อบกพร่อง / Action Taken (Defect Details &amp; Action)<textarea class="inp" name="defect_detail" rows="3" maxlength="2000" placeholder="ระบุสิ่งที่ตรวจพบไม่ผ่านเกณฑ์ ปริมาณของที่เสีย หรือเงื่อนไขการรับสินค้า…">${esc(old?.defect_detail)}</textarea><small class="hint">* กรณีไม่ผ่าน หรือรับแบบมีเงื่อนไข กรุณาระบุรายละเอียดข้อบกพร่องให้ชัดเจน</small></label>
-
-    <div class="sub-h"><b><i class="fa-solid fa-camera"></i> ภาพถ่ายประกอบการตรวจรับ (Inspection Photos &amp; Evidence)</b>
-      <span><label class="btn sm primary"><i class="fa-solid fa-camera"></i> ถ่ายภาพ<input type="file" accept="image/*" capture="environment" hidden id="camIn"></label>
-      <label class="btn sm dark"><i class="fa-solid fa-upload"></i> อัปโหลดรูป<input type="file" accept="image/*" multiple hidden id="upIn"></label></span></div>
-    <p class="hint">ถ่ายภาพรถขนส่ง ป้าย Label สภาพสินค้า หรือข้อบกพร่องที่พบ (ไม่เกิน ${b.max_photos} รูป)</p>
-    <div class="photos" id="photos"></div>
 
     <div class="sign-grid">
       <div class="sign-box">
@@ -414,7 +416,7 @@ async function pageForm(editId) {
 
   const form = $('#pf');
   const el = n => form.elements[n];
-  const state = { checks: old ? old.checks.slice() : [], cat_result: old?.cat_result || '', strength: old?.strength || '', weights: old ? old.weights.slice() : [], wmin: old?.wmin ?? null, wmax: old?.wmax ?? null, wunit: old?.wunit || 'g', autoResult: '' };
+  const state = { checks: old ? old.checks.slice() : [], cat_result: old?.cat_result || '', strength: old?.strength || '', weights: old ? old.weights.slice() : [], wmin: old?.wmin ?? null, wmax: old?.wmax ?? null, wunit: old?.wunit || 'g' };
   const pad = signPad($('#signPad'));
   const curItem = () => b.items.find(i => i.id === Number(el('item_id').value));
   // the category the sheet was recorded with stays while its item is unchanged (the server does the same)
@@ -497,22 +499,19 @@ async function pageForm(editId) {
     else if (d > plan.n) { v.className = 'verdict bad'; v.textContent = 'เกินจำนวนตัวอย่าง (' + plan.n + ')'; }
     else if (d >= plan.re) { v.className = 'verdict bad'; v.innerHTML = '<i class="fa-solid fa-xmark"></i> Reject (พบ ' + d + ' ≥ ' + plan.re + ')'; }
     else { v.className = 'verdict ok'; v.innerHTML = '<i class="fa-solid fa-check"></i> Accept (พบ ' + d + ' ≤ ' + plan.ac + ')'; }
-    // proposed overall result
+    // AQL and criteria are guidance only; the inspector chooses the overall result.
     const why = [];
     if (state.cat_result === 'fail') why.push('หมวดบรรจุภัณฑ์ Fail');
     if (plan && d != null && d >= plan.re) why.push('ข้อบกพร่องถึงเกณฑ์ปฏิเสธ');
     const cat = it && catOf(catKey());
     if (cat && cat.weight && wStats().out) why.push('น้ำหนักนอกเกณฑ์ ' + wStats().out + ' ชิ้น');
     const ready = state.cat_result && plan && d != null;
-    state.autoResult = why.length ? 'fail' : ready ? 'pass' : '';
-    const cur = form.querySelector('input[name=result]:checked');
-    $('#autoHint').innerHTML = state.autoResult ? `ระบบเสนอ: <b class="${state.autoResult === 'fail' ? 'tbad' : 'tok'}">${RESULT[state.autoResult].t}</b>${why.length ? ' (' + why.join(', ') + ')' : ''}${cur && cur.value !== state.autoResult ? ' · <span class="tbad">ผลที่เลือกต่างจากที่ระบบเสนอ</span>' : ''}` : '';
-    if (!cur && state.autoResult && !refresh.touched) form.querySelector(`input[name=result][value=${state.autoResult}]`).checked = true;
-    else if (cur && !refresh.touched && state.autoResult && cur.value !== state.autoResult) form.querySelector(`input[name=result][value=${state.autoResult}]`).checked = true;
+    const guidance = why.length ? `<b class="tbad">ควรพิจารณาไม่ผ่านตามข้อมูลที่พบ</b> (${why.join(', ')})` : ready ? '<b class="tok">ผลตาม AQL อยู่ในเกณฑ์ Accept</b>' : '';
+    $('#autoHint').innerHTML = guidance ? guidance + ' · ผู้ตรวจเป็นผู้เลือกผลรวม Pass / Fail เอง' : 'ผล AQL เป็นคำแนะนำ ผู้ตรวจเป็นผู้เลือกผลรวม Pass / Fail เอง';
   }
-  refresh.touched = !!old;
-
   function renderPhotos() {
+    const photoCount = $('#photoCount');
+    if (photoCount) photoCount.textContent = f.photos.length + '/' + b.max_photos;
     $('#photos').innerHTML = f.photos.length ? f.photos.map((p, i) => `<figure><img ${/^data:/.test(p) ? `src="${p}" class="ok"` : `data-fid="${esc(p)}"`} alt="รูปที่ ${i + 1}"><button type="button" class="x" data-rm="${i}" aria-label="ลบรูป"><i class="fa-solid fa-xmark"></i></button></figure>`).join('')
       : '<div class="drop"><i class="fa-regular fa-image"></i>ยังไม่มีภาพถ่ายประกอบ — กด “ถ่ายภาพ” หรือ “อัปโหลดรูป”</div>';
     $$('[data-rm]', $('#photos')).forEach(x => x.onclick = () => { f.photos.splice(+x.dataset.rm, 1); renderPhotos(); });
@@ -548,7 +547,7 @@ async function pageForm(editId) {
   el('lot_qty').oninput = () => { renderWeights(); refresh(); };
   el('unit').oninput = refresh;
   el('defects').oninput = refresh;
-  $$('input[name=result]', form).forEach(r => r.onchange = () => { refresh.touched = true; refresh(); });
+  $$('input[name=result]', form).forEach(r => r.onchange = refresh);
   $('#resetBtn').onclick = () => { if (old) { location.hash = '#sheet/' + old.id; return; } if (confirm('ล้างข้อมูลในฟอร์มทั้งหมด?')) { store('del', 'oft_draft'); pageForm(); } };
 
   if (old) { state.wmin = old.wmin; state.wmax = old.wmax; }

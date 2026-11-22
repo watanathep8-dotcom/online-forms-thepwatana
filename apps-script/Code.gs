@@ -113,7 +113,7 @@ var AQL_TABLE = [
 var AQL_LEVEL = "II";
 var AQL_VALUE = "6.5";
 
-var MAX_PHOTOS = 8;
+var MAX_PHOTOS = 25;
 var MAX_IMAGE_BYTES = 3 * 1024 * 1024; // one image after the page resized it
 var MAX_LOT = 100000000;
 var MAX_PERSON = 100;
