@@ -45,6 +45,10 @@ var FOLDER_NAME = "Online Forms Files";
 var RESET_ACTION = "reset_data"; // not offered (kept so the shared write path stays unchanged)
 var RESET_PASSWORD_PROPERTY = "FORM_ADMIN_PASSWORD";
 var ROLE_PROPERTY = { qc: "FORM_QC_PASSWORD", admin: RESET_PASSWORD_PROPERTY };
+var GOOGLE_CLIENT_PROPERTY = "FORM_GOOGLE_CLIENT_ID";
+var GOOGLE_ADMIN_PROPERTY = "FORM_GOOGLE_ADMIN_EMAILS";
+var GOOGLE_QC_PROPERTY = "FORM_GOOGLE_QC_EMAILS";
+var LEGACY_LOGIN_PROPERTY = "FORM_ALLOW_LEGACY_LOGIN";
 var ROLE_LEVEL = { qc: 1, admin: 2 };
 var ROLE_NAME = { qc: "หัวหน้า QC", admin: "ผู้ดูแลระบบ" };
 var ROLE_ORDER = ["admin", "qc"];
@@ -251,7 +255,7 @@ function runWrite_(action, input, reads, sess) {
   } catch (lockError) {
     return jsonResponse_({ ok: false, error: "ระบบกำลังบันทึกรายการอื่นอยู่ กรุณาลองใหม่อีกครั้ง" });
   }
-  var actor = actorIn_(input);
+  var actor = sess && sess.email ? identityLabel_(sess) : actorIn_(input);
   var result;
   var start = function () {
     resetRequest_(actor);
@@ -381,16 +385,103 @@ function missingPasswordsMessage_() {
     ") กรุณาให้ผู้ดูแลระบบตั้งค่าที่ Project Settings > Script properties ก่อน";
 }
 
+function parseEmailAllowlist_(raw) {
+  var values = Array.isArray(raw) ? raw : String(raw || "").split(/[\s,;]+/);
+  var out = {};
+  values.forEach(function (v) {
+    var email = phpTrim_(String(v || "")).toLowerCase();
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) out[email] = true;
+  });
+  return out;
+}
+
+function roleForEmail_(email) {
+  var props = PropertiesService.getScriptProperties().getProperties() || {};
+  var normalized = phpTrim_(String(email || "")).toLowerCase();
+  if (!normalized) return null;
+  if (parseEmailAllowlist_(props[GOOGLE_ADMIN_PROPERTY])[normalized]) return "admin";
+  if (parseEmailAllowlist_(props[GOOGLE_QC_PROPERTY])[normalized]) return "qc";
+  return null;
+}
+
+function identityLabel_(identity) {
+  if (!identity || !identity.email) return "";
+  var email = String(identity.email).toLowerCase();
+  var name = phpTrim_(String(identity.name || ""));
+  return name ? name + " <" + email + ">" : email;
+}
+
+function legacyLoginEnabled_(props) {
+  var raw = props && Object.prototype.hasOwnProperty.call(props, LEGACY_LOGIN_PROPERTY)
+    ? props[LEGACY_LOGIN_PROPERTY] : null;
+  // Existing deployments predate this property. Keep them usable during the
+  // migration, then set FORM_ALLOW_LEGACY_LOGIN=false after Google is verified.
+  if (raw === null || raw === undefined || raw === "") return true;
+  return ["1", "true", "yes", "on"].indexOf(String(raw).toLowerCase()) !== -1;
+}
+
+function googleIdentityFromCredential_(credential) {
+  if (typeof credential !== "string" || !credential || credential.length > 4096) {
+    throw new Error("ข้อมูล Google Login ไม่ถูกต้อง");
+  }
+  var props = PropertiesService.getScriptProperties().getProperties() || {};
+  var clientId = phpTrim_(String(props[GOOGLE_CLIENT_PROPERTY] || ""));
+  if (!clientId) throw new Error("ยังไม่ได้ตั้งค่า Google OAuth Client ID ใน Script Properties");
+  var url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(credential);
+  var response;
+  try {
+    response = UrlFetchApp.fetch(url, { method: "get", muteHttpExceptions: true });
+  } catch (error) {
+    throw new Error("ตรวจสอบ Google Login ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  }
+  if (!response || Number(response.getResponseCode()) !== 200) throw new Error("Google Login ไม่ถูกต้องหรือหมดอายุ");
+  var info;
+  try { info = JSON.parse(response.getContentText() || "{}"); } catch (error) { info = null; }
+  if (!info || typeof info !== "object") throw new Error("Google Login ไม่ถูกต้อง");
+  var issuer = String(info.iss || "");
+  var audience = String(info.aud || "");
+  var exp = Number(info.exp || 0);
+  var verified = info.email_verified === true || String(info.email_verified || "").toLowerCase() === "true";
+  var email = phpTrim_(String(info.email || "")).toLowerCase();
+  if ((issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") ||
+      audience !== clientId || !(exp > Math.floor(Date.now() / 1000)) || !verified || !email) {
+    throw new Error("Google Login ไม่ถูกต้องหรืออีเมลยังไม่ได้ยืนยัน");
+  }
+  var role = roleForEmail_(email);
+  if (!role) throw new Error("อีเมลนี้ไม่ได้รับอนุญาตให้ใช้งานระบบ");
+  return { email: email, name: phpTrim_(String(info.name || info.given_name || "")), sub: String(info.sub || ""), role: role };
+}
+
 // Compares a typed password with one stored password (digests, constant time).
 function passwordMatches_(typed, expected) {
   var ok = sameBytes_(digest_(typeof typed === "string" ? typed : ""), digest_(expected || ""));
   return ok && typeof typed === "string" && Boolean(expected);
 }
 
-// login {password, client?} -> {token, role, role_name, expires_at, ttl}
+// login {credential, client?} -> verified Google identity session;
+// login {password, client?} -> temporary legacy password session.
 function actionLogin_(p) {
   var client = clientId_(p.client);
   var props = PropertiesService.getScriptProperties().getProperties() || {};
+  if (typeof p.credential === "string" && p.credential) {
+    var identity = googleIdentityFromCredential_(p.credential);
+    var googleToken = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").toLowerCase();
+    var googleNow = Date.now();
+    var googleExp = googleNow + SESSION_TTL * 1000;
+    try {
+      cache_().put(SESSION_PREFIX + googleToken, JSON.stringify({
+        a: "google", r: identity.role, e: googleExp, p: googleNow,
+        email: identity.email, name: identity.name, sub: identity.sub
+      }), CACHE_MAX_TTL);
+    } catch (error) {
+      fail_("ระบบเข้าสู่ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง");
+    }
+    return { token: googleToken, role: identity.role, role_name: ROLE_NAME[identity.role],
+      expires_at: googleExp, ttl: SESSION_TTL, email: identity.email, name: identity.name };
+  }
+  if (!legacyLoginEnabled_(props)) {
+    throw passwordError_("การเข้าสู่ระบบด้วยรหัสผ่านถูกปิดแล้ว กรุณาใช้ Google Login");
+  }
   var configured = ROLE_ORDER.filter(function (r) { return Boolean(props[ROLE_PROPERTY[r]]); });
   if (!configured.length) throw passwordError_(missingPasswordsMessage_());
   lockoutCheck_(client);
@@ -410,7 +501,7 @@ function actionLogin_(p) {
   var now = Date.now();
   var exp = now + SESSION_TTL * 1000;
   try {
-    cache_().put(SESSION_PREFIX + token, JSON.stringify({ r: role, e: exp, p: now, f: fingerprint_(props[ROLE_PROPERTY[role]]) }), CACHE_MAX_TTL);
+    cache_().put(SESSION_PREFIX + token, JSON.stringify({ a: "password", r: role, e: exp, p: now, f: fingerprint_(props[ROLE_PROPERTY[role]]) }), CACHE_MAX_TTL);
   } catch (error) {
     fail_("ระบบเข้าสู่ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง");
   }
@@ -432,6 +523,19 @@ function session_(token) {
   try { rec = JSON.parse(cache_().get(key) || "null"); } catch (error) { return null; }
   var now = Date.now();
   if (!rec || typeof rec !== "object" || !Object.prototype.hasOwnProperty.call(ROLE_LEVEL, rec.r) || !(Number(rec.e) > now)) return null;
+  if (rec.a === "google") {
+    var googleRole = roleForEmail_(rec.email);
+    if (!googleRole) return null;
+    rec.r = googleRole;
+    if (!(now - Number(rec.p) < SESSION_RENEW_MS)) {
+      rec.p = now;
+      var googleTtl = Math.max(1, Math.min(CACHE_MAX_TTL, Math.ceil((rec.e - now) / 1000)));
+      try { cache_().put(key, JSON.stringify(rec), googleTtl); } catch (ignoredGoogle) {}
+    }
+    return { role: googleRole, expires_at: rec.e, email: String(rec.email || ""), name: String(rec.name || "") };
+  }
+  var props = PropertiesService.getScriptProperties().getProperties() || {};
+  if (!legacyLoginEnabled_(props)) return null;
   var pw = PropertiesService.getScriptProperties().getProperty(ROLE_PROPERTY[rec.r]) || "";
   if (!pw || fingerprint_(pw) !== rec.f) return null;
   if (!(now - Number(rec.p) < SESSION_RENEW_MS)) {
@@ -440,7 +544,7 @@ function session_(token) {
     var ttl = Math.max(1, Math.min(CACHE_MAX_TTL, Math.ceil((rec.e - now) / 1000)));
     try { cache_().put(key, JSON.stringify(rec), ttl); } catch (ignored) {}
   }
-  return { role: rec.r, expires_at: rec.e };
+  return { role: rec.r, expires_at: rec.e, email: "", name: "" };
 }
 
 function requireRole_(token, need) {

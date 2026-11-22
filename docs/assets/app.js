@@ -58,8 +58,10 @@ function loadSess() {
   return null;
 }
 function setSess(v) {
-  S.sess = v;
-  if (v) sstore('set', 'oft_sess', JSON.stringify(v)); else sstore('del', 'oft_sess');
+  S.sess = v ? { t: v.t, role: v.role, exp: v.exp, email: v.email || '', name: v.name || '' } : null;
+  // Keep only the opaque app session token and its expiry in this tab. Google
+  // credentials and identity assertions never enter browser storage.
+  if (S.sess) sstore('set', 'oft_sess', JSON.stringify({ t: S.sess.t, role: S.sess.role, exp: S.sess.exp })); else sstore('del', 'oft_sess');
   paintUser();
 }
 const can = r => !!S.sess && ROLE_LV[S.sess.role] >= ROLE_LV[r];
@@ -70,29 +72,74 @@ const CLIENT_ID = (() => {
   }
   return id;
 })();
+const GOOGLE_CLIENT_ID = String((window.FORM_CONFIG || {}).googleClientId || '').trim();
+const LEGACY_PASSWORD_LOGIN = (window.FORM_CONFIG || {}).legacyPasswordLogin !== false;
+function renderGoogleButton(target, onCredential) {
+  if (!target) return;
+  const unavailable = () => {
+    target.innerHTML = '<span class="hint">ยังไม่พร้อมสำหรับ Google Login — ตรวจสอบ Client ID และการโหลด Google Identity Services</span>';
+  };
+  if (!GOOGLE_CLIENT_ID) { unavailable(); return; }
+  let tries = 0;
+  const render = () => {
+    if (!window.google?.accounts?.id) {
+      if (++tries < 20) return setTimeout(render, 150);
+      unavailable();
+      return;
+    }
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: response => response?.credential ? onCredential(response.credential) : unavailable()
+    });
+    target.textContent = '';
+    window.google.accounts.id.renderButton(target, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'rectangular', width: 320 });
+  };
+  render();
+}
 function askUnlock(need, why) {
   if (can(need)) return Promise.resolve(true);
   return new Promise(resolve => {
-    openModal(`<h3><i class="fa-solid fa-key"></i> รหัสผ่าน${ROLE_TH[need]}</h3>
-      <p class="hint">${esc(why || '')}</p>
+    const legacy = LEGACY_PASSWORD_LOGIN ? `<details class="legacy-login"><summary>ใช้รหัสผ่านเดิมชั่วคราว</summary>
       <form id="pwForm" autocomplete="off">
-        <input type="password" id="pwIn" class="inp" placeholder="ใส่รหัสผ่าน" autocomplete="current-password">
-        <div class="err" id="pwErr" role="alert"></div>
-        <div class="acts"><button type="button" class="btn ghost" data-close>ยกเลิก</button><button class="btn primary" id="pwGo"><i class="fa-solid fa-lock-open"></i> ปลดล็อก</button></div>
-      </form>`, () => resolve(can(need)));
-    $('#pwIn').focus();
-    $('#pwForm').onsubmit = async ev => {
-      ev.preventDefault();
-      const go = $('#pwGo');
-      go.disabled = true;
+        <label class="sr-only" for="pwIn">รหัสผ่านเดิม</label><input type="password" id="pwIn" class="inp" placeholder="ใส่รหัสผ่านเดิม" autocomplete="current-password">
+        <button class="btn secondary" id="pwGo"><i class="fa-solid fa-key"></i> เข้าด้วยรหัสผ่านเดิม</button>
+      </form></details>` : '';
+    openModal(`<h3><i class="fa-brands fa-google"></i> เข้าสู่ระบบด้วยบัญชี Google</h3>
+      <p class="hint">${esc(why || '')}</p>
+      <div id="googleLoginButton" class="google-login-button" aria-label="เข้าสู่ระบบด้วย Google"></div>
+      <div class="err" id="pwErr" role="alert"></div>
+      ${legacy}
+      <div class="acts"><button type="button" class="btn ghost" data-close>ยกเลิก</button></div>`, () => resolve(can(need)));
+    const errorBox = $('#pwErr');
+    let busy = false;
+    const finishLogin = async (credentials) => {
+      if (busy) return;
+      busy = true;
       try {
-        const d = await api('login', { password: $('#pwIn').value, client: CLIENT_ID });
-        setSess({ t: d.token, role: d.role, exp: d.expires_at });
-        if (!can(need)) { $('#pwErr').textContent = 'รหัสนี้เป็นระดับ “' + ROLE_TH[d.role] + '” ซึ่งทำรายการนี้ไม่ได้'; go.disabled = false; return; }
+        const d = await api('login', { credential: credentials, client: CLIENT_ID });
+        setSess({ t: d.token, role: d.role, exp: d.expires_at, email: d.email, name: d.name });
+        if (!can(need)) { errorBox.textContent = 'บัญชีนี้เป็นระดับ “' + ROLE_TH[d.role] + '” ซึ่งทำรายการนี้ไม่ได้'; busy = false; return; }
         closeModal();
-        toast('ปลดล็อก: ' + ROLE_TH[d.role], 'ok');
-      } catch (e) { $('#pwErr').textContent = e.message; go.disabled = false; }
+        toast('เข้าสู่ระบบ: ' + ROLE_TH[d.role], 'ok');
+      } catch (e) { errorBox.textContent = e.message; busy = false; }
     };
+    renderGoogleButton($('#googleLoginButton'), finishLogin);
+    if ($('#pwForm')) {
+      $('#pwForm').onsubmit = async ev => {
+        ev.preventDefault();
+        if (busy) return;
+        busy = true;
+        const go = $('#pwGo');
+        go.disabled = true;
+        try {
+          const d = await api('login', { password: $('#pwIn').value, client: CLIENT_ID });
+          setSess({ t: d.token, role: d.role, exp: d.expires_at });
+          if (!can(need)) { errorBox.textContent = 'รหัสนี้เป็นระดับ “' + ROLE_TH[d.role] + '” ซึ่งทำรายการนี้ไม่ได้'; busy = false; go.disabled = false; return; }
+          closeModal();
+          toast('เข้าสู่ระบบชั่วคราว: ' + ROLE_TH[d.role], 'ok');
+        } catch (e) { errorBox.textContent = e.message; busy = false; go.disabled = false; }
+      };
+    }
   });
 }
 

@@ -16,7 +16,7 @@ const ROOT = path.join(__dirname, "..");
 
 /* ===================== mocks ===================== */
 function createGas() {
-  const state = { props: {}, cache: {}, cachePuts: [], cachePutAlls: [], cacheGetAlls: 0, flushes: 0, cacheDown: false, sheetReads: {}, rowReads: 0, events: [], sleeps: 0, locks: 0, unlocks: 0, lockFail: false, spreadsheets: {}, seq: 0, formatCalls: 0, created: 0, fetches: [], fetchStatus: 202, fetchError: null, logs: [] };
+  const state = { props: {}, cache: {}, cachePuts: [], cachePutAlls: [], cacheGetAlls: 0, flushes: 0, cacheDown: false, sheetReads: {}, rowReads: 0, events: [], sleeps: 0, locks: 0, unlocks: 0, lockFail: false, spreadsheets: {}, seq: 0, formatCalls: 0, created: 0, fetches: [], fetchStatus: 202, fetchBody: "", fetchError: null, logs: [] };
 
   class Range {
     constructor(sheet, row, col, nr, nc) {
@@ -211,7 +211,7 @@ function createGas() {
         state.fetches.push({ url, opts, lockHeld: state.locks !== state.unlocks });
         if (state.fetchError) throw new Error(state.fetchError);
         const code = state.fetchStatus;
-        return { getResponseCode: () => code, getContentText: () => "" };
+        return { getResponseCode: () => code, getContentText: () => state.fetchBody || "" };
       }
     },
     // Drive: one folder of files. state.files[id] = {name, mime, bytes(Buffer), trashed}
@@ -336,6 +336,62 @@ test("login: qc and admin passwords give their roles; wrong password refused", (
   assert.strictEqual(okData(postAs(TA, "bootstrap")).role, "admin");
   err(rawPost({ action: "login", password: "nope" }), /รหัสไม่ถูกต้อง/);
   Object.keys(state.cache).forEach(k => { if (/FAILURES|^FORM_LF_/.test(k)) delete state.cache[k]; });
+});
+
+test("login: verified Google admin and QC identities get roles and identity metadata", () => {
+  const clientId = "google-client.apps.googleusercontent.com";
+  const qcEmail = "qc@example.com";
+  const adminEmail = "admin@example.com";
+  Object.assign(state.props, {
+    FORM_GOOGLE_CLIENT_ID: clientId,
+    FORM_GOOGLE_ADMIN_EMAILS: adminEmail,
+    FORM_GOOGLE_QC_EMAILS: qcEmail,
+    FORM_ALLOW_LEGACY_LOGIN: "false"
+  });
+  const googleLogin = identity => {
+    state.fetchStatus = 200;
+    state.fetchBody = JSON.stringify(identity);
+    return okData(rawPost({ action: "login", credential: "fake-google-id-token", client: "0123456789abcdef" }));
+  };
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const admin = googleLogin({ iss: "https://accounts.google.com", aud: clientId, email: adminEmail, email_verified: "true", exp, name: "Google Admin" });
+  const qcIdentity = googleLogin({ iss: "accounts.google.com", aud: clientId, email: qcEmail, email_verified: true, exp, name: "Google QC" });
+  assert.strictEqual(admin.role, "admin");
+  assert.strictEqual(admin.email, adminEmail);
+  assert.strictEqual(admin.name, "Google Admin");
+  assert.strictEqual(qcIdentity.role, "qc");
+  assert.strictEqual(qcIdentity.email, qcEmail);
+  assert.strictEqual(okData(postAs(admin.token, "bootstrap")).role, "admin");
+  assert.strictEqual(okData(postAs(qcIdentity.token, "bootstrap")).role, "qc");
+  err(postAs(qcIdentity.token, "logs"), /ทำรายการนี้ไม่ได้|ผู้ดูแลระบบ/);
+  err(postAs(admin.token, "head_save", { name: "" }, "ชื่อที่กรอกในหน้า"), /กรอกชื่อ|ระบุชื่อ/);
+  const audit = okData(postAs(admin.token, "logs")).items.find(item => /ตั้งค่าหัวหน้า QC/.test(item.detail));
+  assert.ok(audit, "the rejected protected write should be audited");
+  assert.strictEqual(audit.actor, "Google Admin <admin@example.com>");
+  state.props.FORM_GOOGLE_ADMIN_EMAILS = "other@example.com";
+  err(postAs(admin.token, "logs"), /ต้องใส่รหัสผ่าน|AUTH_REQUIRED/);
+  state.props.FORM_GOOGLE_ADMIN_EMAILS = adminEmail;
+  state.fetchStatus = 202;
+  state.fetchBody = "";
+  state.props.FORM_ALLOW_LEGACY_LOGIN = "true";
+});
+
+test("login: invalid Google audience, unverified, and unallowlisted identities are refused; password fallback is gated", () => {
+  const clientId = state.props.FORM_GOOGLE_CLIENT_ID;
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const attempt = identity => {
+    state.fetchStatus = 200;
+    state.fetchBody = JSON.stringify(identity);
+    return rawPost({ action: "login", credential: "fake-google-id-token", client: "fedcba9876543210" });
+  };
+  err(attempt({ iss: "https://accounts.google.com", aud: "wrong-client", email: "admin@example.com", email_verified: true, exp }), /Google|token|ยืนยัน|ไม่ถูกต้อง/);
+  err(attempt({ iss: "https://accounts.google.com", aud: clientId, email: "admin@example.com", email_verified: false, exp }), /ยืนยัน|verified|token|ไม่ถูกต้อง/);
+  err(attempt({ iss: "https://accounts.google.com", aud: clientId, email: "not-allowed@example.com", email_verified: true, exp }), /สิทธิ์|อนุญาต|allow|ไม่พบ|ไม่ถูกต้อง/);
+  state.props.FORM_ALLOW_LEGACY_LOGIN = "false";
+  err(rawPost({ action: "login", password: QPW }), /Google|ปิด|อนุญาต|token|เข้าสู่ระบบ/);
+  state.props.FORM_ALLOW_LEGACY_LOGIN = "true";
+  state.fetchStatus = 202;
+  state.fetchBody = "";
 });
 
 test("role gating: settings / edit / delete need admin, approve / return need qc; anonymous submit allowed", () => {
@@ -623,13 +679,20 @@ test("GET: public reads work, writes / tokens refused", () => {
 
 test("frontend files parse; no stored passwords; storage keys prefixed oft_", () => {
   const app = fs.readFileSync(path.join(ROOT, "docs/assets/app.js"), "utf8");
+  const html = fs.readFileSync(path.join(ROOT, "docs/index.html"), "utf8");
   new Function(app);
   assert.ok(!/(local|session)Storage\.setItem\([^)]*[Pp]ass/.test(app));
   const keys = [...app.matchAll(/(?:local|session)Storage\.(?:get|set|remove)Item\(\s*(["'`])([^"'`]+)\1/g)].map(m => m[2]);
   keys.forEach(k => assert.ok(k.startsWith("oft_"), "storage key " + k));
+  assert.ok(/google\.accounts\.id\.initialize/.test(app), "Google Identity Services is not initialized");
+  assert.ok(/credential/.test(app), "Google credential is not sent to the API");
+  assert.ok(/legacyPasswordLogin/.test(app), "legacy fallback visibility is not controlled by config");
+  assert.ok(/accounts\.google\.com\/gsi\/client/.test(html), "Google Identity Services script is not loaded");
   const cfg = {};
   new Function("window", fs.readFileSync(path.join(ROOT, "docs/config.js"), "utf8"))(cfg);
   assert.ok(cfg.FORM_CONFIG.apiUrl === "" || /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(cfg.FORM_CONFIG.apiUrl));
+  assert.ok(Object.prototype.hasOwnProperty.call(cfg.FORM_CONFIG, "googleClientId"));
+  assert.ok(Object.prototype.hasOwnProperty.call(cfg.FORM_CONFIG, "legacyPasswordLogin"));
 });
 
 test("no secrets in logs", () => {
