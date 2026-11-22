@@ -761,6 +761,11 @@ test("frontend files parse; no stored passwords; storage keys prefixed oft_", ()
   assert.ok(cfg.FORM_CONFIG.apiUrl === "" || /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(cfg.FORM_CONFIG.apiUrl));
   assert.ok(Object.prototype.hasOwnProperty.call(cfg.FORM_CONFIG, "googleClientId"));
   assert.ok(Object.prototype.hasOwnProperty.call(cfg.FORM_CONFIG, "legacyPasswordLogin"));
+  const configSrc = fs.readFileSync(path.join(ROOT, "docs/config.js"), "utf8");
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+  assert.ok(!/FORM_(?:ADMIN|QC)_PASSWORD|FORM_GOOGLE_(?:ADMIN|QC)_EMAILS/.test(configSrc), "private auth values leaked into frontend config");
+  assert.ok(/https:\/\/watanathep8-dotcom\.github\.io\/online-forms-thepwatana/.test(readme), "exact GitHub Pages OAuth origin is not documented");
+  assert.ok(/importCatalog\(\)/.test(readme) && /FORM_ALLOW_LEGACY_LOGIN/.test(readme), "rollout operations are not documented");
 });
 
 test("no secrets in logs", () => {
