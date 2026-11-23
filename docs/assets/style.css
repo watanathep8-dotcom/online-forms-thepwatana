@@ -109,7 +109,9 @@ table { border-collapse: collapse; width: 100%; }
 .crit tr.off { opacity: .45; }
 .crit tr.on { background: #f8fbff; }
 .crit tr.on td:first-child { box-shadow: inset 4px 0 0 var(--blue2); }
-.crit td:last-child { width: 130px; }
+.crit td:nth-last-child(2) { width: 130px; }
+.crit th:last-child, .crit td.criteria-note { min-width: 190px; }
+.criteria-note-input { min-height: 70px; }
 .cb { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; font-weight: 400; cursor: pointer; }
 .cb input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--blue2); flex: none; }
 .strength { display: flex; gap: 12px; align-items: center; margin-top: 4px; font-size: 13.5px; flex-wrap: wrap; }
@@ -271,6 +273,7 @@ table { border-collapse: collapse; width: 100%; }
   .crit tr.off { display: none; }
   .crit td { border: 0; border-top: 1px solid var(--line); }
   .crit td.ck { display: none; }
+  .crit td.criteria-note::before { content: 'หมายเหตุ'; display: block; color: var(--muted); font: 600 13px 'Kanit'; margin-bottom: 4px; }
   .form-acts .btn { flex: 1; }
   .foot { flex-direction: column; gap: 4px; }
 }

@@ -139,7 +139,7 @@ var SCHEMA = {
     ["supplier_id", "int"], ["supplier_name", "str"], ["item_id", "int"], ["item_name", "str"], ["item_code", "str"],
     ["category", "str"], ["po_no", "str"], ["invoice_no", "str"], ["lot_qty", "int"], ["unit", "str"], ["lot_no", "str"],
     ["aql_code", "str"], ["sample_n", "int"], ["ac", "int"], ["re", "int"], ["defects", "int"],
-    ["checks", "str"], ["cat_result", "str"], ["strength", "str"],
+    ["checks", "str"], ["criteria_notes", "str"], ["cat_result", "str"], ["strength", "str"],
     ["weights", "str"], ["wmin", "num?"], ["wmax", "num?"], ["wunit", "str"], ["w_avg", "num?"], ["w_count", "int"], ["w_out", "int"],
     ["result", "str"], ["defect_detail", "str"], ["photos", "str"], ["bill_photo", "str"],
     ["inspector", "str"], ["inspector_sign", "str"], ["inspected_at", "dt"],
@@ -692,9 +692,19 @@ function jsonArr_(text) {
   }
 }
 
+function jsonObj_(text) {
+  try {
+    var v = JSON.parse(text || "{}");
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  } catch (e) {
+    return {};
+  }
+}
+
 function fullRow_(r) {
   var o = plain_(r);
   o.checks = jsonArr_(r.checks);
+  o.criteria_notes = jsonObj_(r.criteria_notes);
   o.weights = jsonArr_(r.weights);
   o.photos = jsonArr_(r.photos);
   return o;
@@ -858,7 +868,8 @@ function pickActive_(name, id, label, keepId) {
 /* submit (public): a new sheet, or a returned sheet sent again (id + status returned).
  * inspection_update (admin): any sheet, status unchanged.
  * Fields: received_date, received_time, supplier_id, item_id, po_no, invoice_no, lot_qty, unit, lot_no,
- * defects, checks[] (booleans of the category checklist), cat_result pass|fail, strength "3"|"5"|"",
+ * defects, checks[] (booleans of the category checklist), criteria_notes (optional JSON object keyed by
+ * category), cat_result pass|fail, strength "3"|"5"|"",
  * weights[] (numbers or null, at most the sample size), wmin, wmax, result pass|fail, defect_detail,
  * photos[] (new image data URLs or ids of this sheet's photos to keep), bill_photo (data URL or the kept id),
  * inspector, inspector_sign (data URL or the kept id). */
@@ -900,6 +911,11 @@ function actionSubmit_(input, admin) {
 
   var checks = Array.isArray(input.checks) ? input.checks : [];
   f.checks = JSON.stringify(cat.checks.map(function (c, i) { return checks[i] === true; }));
+  // A missing field from an older client must not erase notes already saved on
+  // an edited sheet. The current frontend sends the complete category map.
+  f.criteria_notes = input.criteria_notes === null || input.criteria_notes === undefined
+    ? (old ? String(old.criteria_notes || "{}") : "{}")
+    : criteriaNotesIn_(input.criteria_notes);
   f.cat_result = str_(input.cat_result);
   if (f.cat_result !== "pass" && f.cat_result !== "fail") fail_("กรุณาเลือกผลตรวจของหมวดบรรจุภัณฑ์ (Pass / Fail)");
   f.strength = cat.strength && (input.strength === "3" || input.strength === "5") ? input.strength : "";
@@ -1123,6 +1139,29 @@ function textIn_(input, key, max, label) {
   var value = phpTrim_(safeStr_(input[key]));
   if (mbLen_(value) > max) fail_(label + "ยาวเกิน " + max + " ตัวอักษร");
   return value;
+}
+
+// Optional per-category notes. Unknown categories are ignored so a newer page
+// can talk to an older backend without making a valid inspection fail.
+function criteriaNotesIn_(raw) {
+  if (raw === null || raw === undefined || raw === "") return "{}";
+  var source = raw;
+  if (typeof source === "string") {
+    try { source = JSON.parse(source); } catch (e) { fail_("หมายเหตุเกณฑ์ตรวจสอบไม่ถูกต้อง"); }
+  }
+  if (!source || typeof source !== "object" || Array.isArray(source)) fail_("หมายเหตุเกณฑ์ตรวจสอบไม่ถูกต้อง");
+  var out = {};
+  Object.keys(source).forEach(function (key) {
+    if (!category_(key)) return;
+    var value = source[key];
+    if (value === null || value === undefined) return;
+    if (typeof value === "object") fail_("หมายเหตุเกณฑ์ตรวจสอบไม่ถูกต้อง");
+    value = phpTrim_(str_(value));
+    if (value === "") return;
+    if (mbLen_(value) > MAX_LONG) fail_("หมายเหตุเกณฑ์ตรวจสอบยาวเกิน " + MAX_LONG + " ตัวอักษร");
+    out[key] = value;
+  });
+  return JSON.stringify(out);
 }
 
 function dtTh_(s) {

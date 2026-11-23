@@ -3,6 +3,12 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const parseCriteriaNotes = raw => {
+  try {
+    const value = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw;
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch { return {}; }
+};
 const fmt = (n, d = 0) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d });
 const store = (fn, k, v) => { try { return fn === 'get' ? localStorage.getItem(k) : fn === 'del' ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { return null; } };
 const sstore = (fn, k, v) => { try { return fn === 'get' ? sessionStorage.getItem(k) : fn === 'del' ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch { return null; } };
@@ -473,7 +479,7 @@ async function pageForm(editId) {
   }
   setupPicker('supplier', sups, supplierLabel);
   setupPicker('item', items, itemLabel);
-  const state = { checks: old ? old.checks.slice() : [], cat_result: old?.cat_result || '', strength: old?.strength || '', weights: old ? old.weights.slice() : [], wmin: old?.wmin ?? null, wmax: old?.wmax ?? null, wunit: old?.wunit || 'g' };
+  const state = { checks: old ? old.checks.slice() : [], criteria_notes: parseCriteriaNotes(old?.criteria_notes), cat_result: old?.cat_result || '', strength: old?.strength || '', weights: old ? old.weights.slice() : [], wmin: old?.wmin ?? null, wmax: old?.wmax ?? null, wunit: old?.wunit || 'g' };
   const pad = signPad($('#signPad'));
   const curItem = () => b.items.find(i => i.id === Number(el('item_id').value));
   // the category the sheet was recorded with stays while its item is unchanged (the server does the same)
@@ -482,16 +488,22 @@ async function pageForm(editId) {
 
   function renderCrit() {
     const cat = catKey();
-    $('#critTbl').innerHTML = `<thead><tr><th>หมวดหมู่บรรจุภัณฑ์</th><th>กายภาพ</th><th>น้ำหนัก</th><th>รายละเอียดข้อกำหนดการตรวจสอบทางกายภาพ</th><th>ผลตรวจ</th></tr></thead><tbody>` +
+    $('#critTbl').innerHTML = `<thead><tr><th>หมวดหมู่บรรจุภัณฑ์</th><th>กายภาพ</th><th>น้ำหนัก</th><th>รายละเอียดข้อกำหนดการตรวจสอบทางกายภาพ</th><th>ผลตรวจ</th><th>หมายเหตุ</th></tr></thead><tbody>` +
       b.categories.map(c => {
         const on = c.key === cat;
         return `<tr class="${on ? 'on' : 'off'}"><td><b>${esc(c.name)}</b>${on ? '<span class="pill blue sm">หมวดของรายการนี้</span>' : ''}</td><td class="ck">✓</td><td class="ck">${c.weight ? '✓' : '-'}</td>
         <td>${c.checks.map((t, i) => `<label class="cb"><input type="checkbox" data-ck="${i}" ${on ? '' : 'disabled'} ${on && state.checks[i] ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}
         ${c.strength ? `<div class="strength">ความแข็งแรงกล่อง: ${['3', '5'].map(v => `<label><input type="radio" name="strength" value="${v}" ${on ? '' : 'disabled'} ${on && state.strength === v ? 'checked' : ''}> ${v} ชั้น</label>`).join(' ')}</div>` : ''}</td>
-        <td>${on ? `<select class="inp sm res-sel ${state.cat_result}" id="catRes"><option value="">-</option><option value="pass" ${state.cat_result === 'pass' ? 'selected' : ''}>✓ Pass</option><option value="fail" ${state.cat_result === 'fail' ? 'selected' : ''}>✗ Fail</option></select>` : '<span class="dim">-</span>'}</td></tr>`;
+        <td>${on ? `<select class="inp sm res-sel ${state.cat_result}" id="catRes"><option value="">-</option><option value="pass" ${state.cat_result === 'pass' ? 'selected' : ''}>✓ Pass</option><option value="fail" ${state.cat_result === 'fail' ? 'selected' : ''}>✗ Fail</option></select>` : '<span class="dim">-</span>'}</td>
+        <td class="criteria-note">${on ? `<textarea class="inp criteria-note-input" data-note-key="${esc(c.key)}" rows="2" maxlength="2000" placeholder="ระบุหมายเหตุ (ถ้ามี)">${esc(state.criteria_notes[c.key] || '')}</textarea>` : '<span class="dim">-</span>'}</td></tr>`;
       }).join('') + '</tbody>';
     $$('[data-ck]', $('#critTbl')).forEach(cb => cb.onchange = () => { state.checks[+cb.dataset.ck] = cb.checked; });
     $$('input[name=strength]', $('#critTbl')).forEach(r => r.onchange = () => { state.strength = r.value; });
+    $$('[data-note-key]', $('#critTbl')).forEach(note => note.oninput = () => {
+      const key = note.dataset.noteKey;
+      const value = note.value.trim();
+      if (value) state.criteria_notes[key] = note.value; else delete state.criteria_notes[key];
+    });
     const sel = $('#catRes');
     if (sel) sel.onchange = () => { state.cat_result = sel.value; sel.className = 'inp sm res-sel ' + sel.value; refresh(); };
   }
@@ -635,7 +647,9 @@ async function pageForm(editId) {
       lot_qty: el('lot_qty').value, unit: el('unit').value, lot_no: old?.lot_no || '', defects: el('defects').value || '0',
       checks: catOf(catKey()).checks.map((_, i) => !!state.checks[i]), cat_result: state.cat_result, strength: state.strength,
       weights: state.weights, wmin: state.wmin ?? '', wmax: state.wmax ?? '', wunit: state.wunit,
-      result: res.value, defect_detail: el('defect_detail').value, photos: f.photos, bill_photo: old?.bill_photo || '',
+      result: res.value, defect_detail: el('defect_detail').value,
+      criteria_notes: JSON.stringify(state.criteria_notes),
+      photos: f.photos, bill_photo: old?.bill_photo || '',
       inspector: el('inspector').value, inspector_sign: f.sign || pad.data(),
     };
     if (old) body.id = old.id; else body.req_id = reqId;
@@ -707,6 +721,8 @@ async function pageSheet(id) {
   const b = await loadBoot();
   const r = (await api('inspection', { id })).inspection;
   const cat = catOf(r.category) || { name: r.category, checks: [], weight: false };
+  const criteriaNotes = parseCriteriaNotes(r.criteria_notes);
+  const criteriaNoteRows = b.categories.filter(c => String(criteriaNotes[c.key] || '').trim()).map(c => `<div><b>${esc(c.name)}</b><p>${esc(criteriaNotes[c.key]).replace(/\n/g, '<br>')}</p></div>`).join('');
   setTitle('ใบตรวจรับ ' + r.doc_no, r.supplier_name + ' · ' + r.item_name);
   const ws = r.weights.map((w, i) => ({ w, i })).filter(x => x.w != null);
   const outW = w => (r.wmin != null && w < r.wmin) || (r.wmax != null && w > r.wmax);
@@ -732,6 +748,7 @@ async function pageSheet(id) {
     <h3>2. เกณฑ์การตรวจสอบ — ${esc(cat.name)} ${pill({ pass: { t: 'Pass', c: 'green', i: 'fa-check' }, fail: { t: 'Fail', c: 'red', i: 'fa-xmark' } }, r.cat_result)}</h3>
     <ul class="checks">${cat.checks.map((t, i) => `<li class="${r.checks[i] ? 'y' : 'n'}"><i class="fa-${r.checks[i] ? 'solid fa-square-check' : 'regular fa-square'}"></i>${esc(t)}</li>`).join('')}
     ${r.strength ? `<li class="y"><i class="fa-solid fa-box"></i>ความแข็งแรงกล่อง: ${esc(r.strength)} ชั้น</li>` : ''}</ul>
+    ${criteriaNoteRows ? `<div class="note-box criteria-notes"><small>หมายเหตุการตรวจสอบ</small>${criteriaNoteRows}</div>` : ''}
     <h3>3. AQL ระดับ ${esc(b.aql.level)} / ${esc(b.aql.value)}</h3>
     <div class="grid4 kv4"><div class="stat"><small>Code</small><b>${esc(r.aql_code)}</b></div><div class="stat"><small>ตัวอย่าง</small><b>${r.sample_n}</b></div><div class="stat ok"><small>Accept ≤</small><b>${r.ac}</b></div><div class="stat bad"><small>Reject ≥</small><b>${r.re}</b></div></div>
     <p>พบข้อบกพร่อง <b>${r.defects}</b> ชิ้น → ${r.defects >= r.re ? '<b class="tbad">Reject</b>' : '<b class="tok">Accept</b>'}</p>

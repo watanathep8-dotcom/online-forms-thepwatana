@@ -510,7 +510,8 @@ test("aql edge sizes: Level II / 6.5 table; >10,000 stays L 200 21/22; 1 piece =
 let FIRST;
 test("submit: new sheet pending, PI- number, AQL from lot, weights avg / out count, files saved to Drive", () => {
   const before = liveFiles();
-  const d = okData(pub("submit", form()));
+  const note = "ตรวจรอยรั่ว\nตัวหนังสือชัดเจน";
+  const d = okData(pub("submit", form({ criteria_notes: JSON.stringify({ bottle: note }) })));
   assert.ok(/^PI-\d{6}-0001$/.test(d.doc_no), d.doc_no);
   assert.strictEqual(d.status, "pending");
   const r = okData(pub("inspection", { id: d.id })).inspection;
@@ -519,6 +520,7 @@ test("submit: new sheet pending, PI- number, AQL from lot, weights avg / out cou
   assert.strictEqual(r.lot_qty, 5000);
   assert.deepStrictEqual([r.aql_code, r.sample_n, r.ac, r.re], ["L", 200, 21, 22]);
   assert.deepStrictEqual(r.checks, [true, false, true, true, true]);
+  assert.deepStrictEqual(r.criteria_notes, { bottle: note });
   assert.deepStrictEqual(r.weights, [12.4, 12.5, null, 12.3]);
   assert.strictEqual(r.w_count, 3);
   assert.strictEqual(r.w_avg, 12.4);
@@ -548,6 +550,8 @@ test("submit validation: required fields, supplier / item from the list, signatu
   err(pub("submit", form({ inspector: "" })), /ชื่อผู้ตรวจรับ/);
   err(pub("submit", form({ wmin: 13, wmax: 12 })), /ต่ำสุดต้องไม่มากกว่า/);
   err(pub("submit", form({ received_date: "2026-02-30" })), /วันที่\/เวลาไม่ถูกต้อง/);
+  err(pub("submit", form({ criteria_notes: "not-json" })), /หมายเหตุเกณฑ์ตรวจสอบไม่ถูกต้อง/);
+  err(pub("submit", form({ criteria_notes: JSON.stringify({ bottle: "x".repeat(2001) }) })), /หมายเหตุเกณฑ์ตรวจสอบยาวเกิน/);
   assert.strictEqual(dataRows("inspections"), n);
   assert.strictEqual(liveFiles(), files); // nothing reached Drive
 });
@@ -680,6 +684,7 @@ test("admin edit keeps status; delete removes the row and trashes its files; aud
   const r = okData(pub("inspection", { id: FIRST.id })).inspection;
   assert.strictEqual(r.status, "approved");
   assert.strictEqual(r.po_no, "PO-ADMIN");
+  assert.deepStrictEqual(r.criteria_notes, FIRST.criteria_notes);
   const files = [r.bill_photo, r.inspector_sign, r.head_sign].concat(r.photos);
   okData(adm("inspection_delete", { id: FIRST.id }));
   err(pub("inspection", { id: FIRST.id }), /ไม่พบใบตรวจรับ/);
