@@ -14,7 +14,11 @@ assert.ok(!appSource.includes("if (!f.bill) miss.push('รูปบิลที�
 assert.ok(!gasSource.includes('keepOr(input.bill_photo, old ? old.bill_photo : "", "รูปบิลที่ Supplier ลงชื่อ", true)'), 'backend must not require a supplier bill');
 assert.ok(appSource.includes('หมายเหตุ'), 'criteria table must render an optional notes column');
 assert.ok(appSource.includes('criteria_notes'), 'frontend must submit criteria notes');
+assert.ok(appSource.includes('b.aql.level'), 'frontend should render the AQL level from bootstrap data');
+assert.ok(!appSource.includes('AQL ระดับ II') && !appSource.includes('ตาราง AQL ระดับ II'), 'frontend must not retain Level II AQL copy');
 assert.ok(gasSource.includes('["criteria_notes", "str"]'), 'inspection schema must persist criteria notes');
 assert.ok(gasSource.includes('criteria_notes'), 'backend must normalize criteria notes');
+assert.ok(gasSource.includes('var AQL_LEVEL = "I"'), 'backend AQL level must be Level I');
+assert.ok(!gasSource.includes('General Inspection Level II'), 'backend must not retain Level II AQL copy');
 
 console.log('form-entry-contract: ok');
