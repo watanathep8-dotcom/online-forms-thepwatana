@@ -947,13 +947,16 @@ function actionSubmit_(input, admin) {
     if (v === "" || v == null) fail_("กรุณาแนบ" + label);
     return { img: imageIn_(v, label) };
   };
-  var billPlan = keepOr(input.bill_photo, old ? old.bill_photo : "", "รูปบิลที่ Supplier ลงชื่อ", true);
+  // The supplier representative / signed-bill section is no longer part of
+  // the entry form. Keep legacy bill files when an older sheet is edited, but
+  // do not require or create a bill for new submissions.
+  var billPlan = keepOr(input.bill_photo, old ? old.bill_photo : "", "รูปบิลที่ Supplier ลงชื่อ", false);
   var signPlan = keepOr(input.inspector_sign, old ? old.inspector_sign : "", "ลายเซ็นผู้ตรวจรับ", true);
 
   var docNo = old ? old.doc_no : nextNo_(DOC_PREFIX, "inspections", "doc_no");
   var photoIds = photoPlan.map(function (pl, i) { return pl.keep || saveImage_(pl.img, docNo + "-photo-" + (i + 1)); });
   f.photos = JSON.stringify(photoIds);
-  f.bill_photo = billPlan.keep || saveImage_(billPlan.img, docNo + "-bill");
+  f.bill_photo = billPlan.keep || (billPlan.img ? saveImage_(billPlan.img, docNo + "-bill") : "");
   f.inspector_sign = signPlan.keep || saveImage_(signPlan.img, docNo + "-sign-inspector");
 
   var now = nowParts_().datetime;

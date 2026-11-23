@@ -324,7 +324,7 @@ async function pageForm(editId) {
   const np = nowParts();
   const f = {
     date: old ? old.received_at.slice(0, 10) : np.date, time: old ? old.received_at.slice(11, 16) : np.time,
-    photos: old ? old.photos.slice() : [], bill: old ? old.bill_photo : '', sign: old ? old.inspector_sign : '',
+    photos: old ? old.photos.slice() : [], sign: old ? old.inspector_sign : '',
   };
   const supplierLabel = s => s ? s.name + (s.active ? '' : ' (ปิดใช้งาน)') : '';
   const itemLabel = i => i ? i.name + (i.code ? ' · ' + i.code : '') + (i.active ? '' : ' (ปิดใช้งาน)') : '';
@@ -409,12 +409,6 @@ async function pageForm(editId) {
         <input class="inp" name="inspector" maxlength="100" value="${esc(old?.inspector || S.user)}" placeholder="ชื่อ-นามสกุล ผู้ตรวจรับ">
       </div>
       <div class="sign-box muted"><div class="sb-h"><b>2. หัวหน้างาน QC (Verified By)</b></div><div class="pad-wrap note"><i class="fa-solid fa-hourglass-half"></i>หัวหน้า QC ลงนามในขั้นอนุมัติ (เมนู “รออนุมัติ”)</div></div>
-      <div class="sign-box">
-        <div class="sb-h"><b>3. ตัวแทนผู้จัดส่ง / Supplier <em>*</em></b></div>
-        <p class="hint">ถ่ายรูปบิลที่ Supplier ลงลายมือชื่อแล้วแนบ</p>
-        <div class="bill" id="bill"></div>
-        <span class="row2"><label class="btn sm primary"><i class="fa-solid fa-camera"></i> ถ่ายรูปบิล<input type="file" accept="image/*" capture="environment" hidden id="billCam"></label><label class="btn sm dark"><i class="fa-solid fa-upload"></i> เลือกไฟล์<input type="file" accept="image/*" hidden id="billUp"></label></span>
-      </div>
     </div>
   </section>
   <div class="form-acts">
@@ -580,11 +574,6 @@ async function pageForm(editId) {
     $$('[data-rm]', $('#photos')).forEach(x => x.onclick = () => { f.photos.splice(+x.dataset.rm, 1); renderPhotos(); });
     hydrateImages($('#photos'));
   }
-  function renderBill() {
-    $('#bill').innerHTML = f.bill ? `<figure><img ${/^data:/.test(f.bill) ? `src="${f.bill}" class="ok"` : `data-fid="${esc(f.bill)}"`} alt="บิลที่ Supplier ลงชื่อ"><button type="button" class="x" id="billRm" aria-label="ลบรูปบิล"><i class="fa-solid fa-xmark"></i></button></figure>` : '<div class="drop sm"><i class="fa-solid fa-file-signature"></i>ยังไม่ได้แนบรูปบิล</div>';
-    if ($('#billRm')) $('#billRm').onclick = () => { f.bill = ''; renderBill(); };
-    hydrateImages($('#bill'));
-  }
   let pendingPhotos = 0;
   let photoQueue = Promise.resolve();
   function addPhotos(files) {
@@ -606,9 +595,6 @@ async function pageForm(editId) {
   }
   $('#camIn').onchange = e => { addPhotos([...e.target.files]); e.target.value = ''; };
   $('#upIn').onchange = e => { addPhotos([...e.target.files]); e.target.value = ''; };
-  const setBill = async file => { if (!file) return; try { f.bill = await resizeImage(file); renderBill(); } catch (e) { toast(e.message, 'err'); } };
-  $('#billCam').onchange = e => { setBill(e.target.files[0]); e.target.value = ''; };
-  $('#billUp').onchange = e => { setBill(e.target.files[0]); e.target.value = ''; };
   $('#signClear').onclick = () => pad.clear();
   if ($('#signRedo')) $('#signRedo').onclick = () => { f.sign = ''; $('.old-sign', view)?.remove(); $('#signPad').hidden = false; $('#signRedo').remove(); pad.clear(); };
 
@@ -627,7 +613,7 @@ async function pageForm(editId) {
 
   if (old) { state.wmin = old.wmin; state.wmax = old.wmax; }
   else if (curItem()) { const it = curItem(); state.wmin = it.wmin; state.wmax = it.wmax; state.wunit = it.wunit || 'g'; }
-  renderCrit(); renderWeights(); renderPhotos(); renderBill(); refresh(); hydrateImages();
+  renderCrit(); renderWeights(); renderPhotos(); refresh(); hydrateImages();
 
   form.onsubmit = async e => {
     e.preventDefault();
@@ -640,7 +626,6 @@ async function pageForm(editId) {
     const res = form.querySelector('input[name=result]:checked');
     if (!res) miss.push('ผลการตรวจรับรวม');
     if (res && res.value === 'fail' && !el('defect_detail').value.trim()) miss.push('รายละเอียดข้อบกพร่อง (ผลไม่ผ่าน)');
-    if (!f.bill) miss.push('รูปบิลที่ Supplier ลงชื่อ');
     if (!f.sign && pad.empty()) miss.push('ลายเซ็นผู้ตรวจรับ');
     if (!el('inspector').value.trim()) miss.push('ชื่อผู้ตรวจรับ');
     if (miss.length) { toast('กรุณากรอก: ' + miss.join(', '), 'warn'); return; }
@@ -650,7 +635,7 @@ async function pageForm(editId) {
       lot_qty: el('lot_qty').value, unit: el('unit').value, lot_no: old?.lot_no || '', defects: el('defects').value || '0',
       checks: catOf(catKey()).checks.map((_, i) => !!state.checks[i]), cat_result: state.cat_result, strength: state.strength,
       weights: state.weights, wmin: state.wmin ?? '', wmax: state.wmax ?? '', wunit: state.wunit,
-      result: res.value, defect_detail: el('defect_detail').value, photos: f.photos, bill_photo: f.bill,
+      result: res.value, defect_detail: el('defect_detail').value, photos: f.photos, bill_photo: old?.bill_photo || '',
       inspector: el('inspector').value, inspector_sign: f.sign || pad.data(),
     };
     if (old) body.id = old.id; else body.req_id = reqId;
@@ -759,7 +744,6 @@ async function pageSheet(id) {
     <div class="sign-grid ro">
       <div class="sign-box"><b>1. ผู้ตรวจรับงาน</b><img class="sig" data-fid="${esc(r.inspector_sign)}" alt="ลายเซ็นผู้ตรวจรับ"><span>${esc(r.inspector)}</span><small>${dtTH(r.inspected_at)}</small></div>
       <div class="sign-box"><b>2. หัวหน้างาน QC</b>${r.head_sign ? `<img class="sig" data-fid="${esc(r.head_sign)}" alt="ลายเซ็นหัวหน้า QC"><span>${esc(r.head)}</span><small>${dtTH(r.approved_at)}</small>${r.head_comment ? `<small>“${esc(r.head_comment)}”</small>` : ''}` : '<div class="pad-wrap note">ยังไม่ได้อนุมัติ</div>'}</div>
-      <div class="sign-box"><b>3. ตัวแทน Supplier (บิลที่ลงชื่อ)</b><img class="bill-img" data-fid="${esc(r.bill_photo)}" alt="บิลที่ Supplier ลงชื่อ"></div>
     </div>
     <footer class="sh-f">บันทึกโดย ${esc(r.created_by)} · ${dtTH(r.created_at)}${r.updated_at ? ' · แก้ไขล่าสุด ' + esc(r.updated_by) + ' ' + dtTH(r.updated_at) : ''}</footer>
   </article>`;
