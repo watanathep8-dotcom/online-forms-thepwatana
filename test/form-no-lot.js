@@ -12,5 +12,9 @@ assert.ok(!appSource.includes('3. ตัวแทนผู้จัดส่ง 
 assert.ok(!appSource.includes('billCam') && !appSource.includes('billUp'), 'new inspection form must not render bill upload controls');
 assert.ok(!appSource.includes("if (!f.bill) miss.push('รูปบิลที่ Supplier ลงชื่อ')"), 'client form must not require a supplier bill');
 assert.ok(!gasSource.includes('keepOr(input.bill_photo, old ? old.bill_photo : "", "รูปบิลที่ Supplier ลงชื่อ", true)'), 'backend must not require a supplier bill');
+assert.ok(appSource.includes('หมายเหตุ'), 'criteria table must render an optional notes column');
+assert.ok(appSource.includes('criteria_notes'), 'frontend must submit criteria notes');
+assert.ok(gasSource.includes('["criteria_notes", "str"]'), 'inspection schema must persist criteria notes');
+assert.ok(gasSource.includes('criteria_notes'), 'backend must normalize criteria notes');
 
 console.log('form-entry-contract: ok');
