@@ -16,7 +16,7 @@ const S = { boot: null, user: store('get', 'oft_user') || '', sess: null, files:
 const STATUS = { pending: { t: 'รอหัวหน้า QC', c: 'amber', i: 'fa-hourglass-half' }, approved: { t: 'อนุมัติแล้ว', c: 'green', i: 'fa-circle-check' }, returned: { t: 'ตีกลับ', c: 'red', i: 'fa-rotate-left' } };
 const RESULT = { pass: { t: 'ผ่าน', c: 'green', i: 'fa-check' }, fail: { t: 'ไม่ผ่าน', c: 'red', i: 'fa-xmark' } };
 const PAGES = {
-  new: ['ตรวจรับใหม่', 'ใบตรวจรับบรรจุภัณฑ์ · AQL ระดับ II / 6.5'],
+  new: ['ตรวจรับใหม่', 'ใบตรวจรับบรรจุภัณฑ์ · AQL'],
   edit: ['แก้ไขใบที่ถูกตีกลับ', 'แก้ไขแล้วส่งให้หัวหน้า QC อีกครั้ง (เลขที่ใบเดิม)'],
   pending: ['รออนุมัติ', 'ใบตรวจรับที่รอหัวหน้า QC ตรวจและลงนาม'],
   history: ['ประวัติการตรวจรับ', 'ค้นหาจากวันที่ Supplier บรรจุภัณฑ์ PO หรือ Lot'],
@@ -315,6 +315,8 @@ function signPad(canvas) {
 /* ================= page: ตรวจรับใหม่ / แก้ไขใบที่ถูกตีกลับ ================= */
 async function pageForm(editId) {
   const b = await loadBoot();
+  const lastAql = b.aql.table[b.aql.table.length - 1];
+  if (!editId) setTitle(PAGES.new[0], `ใบตรวจรับบรรจุภัณฑ์ · AQL ระดับ ${b.aql.level} / ${b.aql.value}`);
   let old = null;
   if (editId) {
     old = (await api('inspection', { id: editId })).inspection;
@@ -383,10 +385,10 @@ async function pageForm(editId) {
       <label class="fld">จำนวนชิ้นที่พบข้อบกพร่อง (จากตัวอย่าง)<input class="inp" name="defects" inputmode="numeric" value="${old ? old.defects : 0}"></label>
       <div class="fld"><span>ผลตามเกณฑ์ AQL</span><div id="aqlVerdict" class="verdict">—</div></div>
     </div>
-    <details class="aql-ref"><summary><i class="fa-solid fa-table"></i> ตาราง AQL ระดับ II · 6.5</summary>
+    <details class="aql-ref"><summary><i class="fa-solid fa-table"></i> ตาราง AQL ระดับ ${esc(b.aql.level)} · ${esc(b.aql.value)}</summary>
       <table class="mini"><thead><tr><th>ขนาด Lot</th><th>Code</th><th>ตัวอย่าง</th><th>Ac</th><th>Re</th></tr></thead><tbody>
       ${b.aql.table.map(r => `<tr><td>${fmt(r[0])} – ${fmt(r[1])}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('')}
-      <tr><td>10,001 ขึ้นไป</td><td>L</td><td>200</td><td>21</td><td>22</td></tr></tbody></table></details>
+      <tr><td>10,001 ขึ้นไป</td><td>${lastAql[2]}</td><td>${lastAql[3]}</td><td>${lastAql[4]}</td><td>${lastAql[5]}</td></tr></tbody></table></details>
     <div id="weightBox"></div>
     </div>
   </section>

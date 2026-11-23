@@ -16,6 +16,7 @@ assert.ok(appSource.includes('หมายเหตุ'), 'criteria table must r
 assert.ok(appSource.includes('criteria_notes'), 'frontend must submit criteria notes');
 assert.ok(appSource.includes('b.aql.level'), 'frontend should render the AQL level from bootstrap data');
 assert.ok(!appSource.includes('AQL ระดับ II') && !appSource.includes('ตาราง AQL ระดับ II'), 'frontend must not retain Level II AQL copy');
+assert.ok(appSource.includes('lastAql'), 'frontend overflow AQL row should use the bootstrap table');
 assert.ok(gasSource.includes('["criteria_notes", "str"]'), 'inspection schema must persist criteria notes');
 assert.ok(gasSource.includes('criteria_notes'), 'backend must normalize criteria notes');
 assert.ok(gasSource.includes('var AQL_LEVEL = "I"'), 'backend AQL level must be Level I');
