@@ -487,29 +487,29 @@ test("settings: suppliers / items / heads saved and listed in bootstrap; duplica
   assert.strictEqual(b.aql.level, "I");
   assert.strictEqual(b.aql.value, "6.5");
   assert.deepStrictEqual(b.aql.table, [
-    [2, 8, "A", 2, 0, 1], [9, 15, "A", 3, 0, 1], [16, 25, "B", 5, 0, 1], [26, 50, "C", 8, 1, 2],
-    [51, 90, "C", 13, 1, 2], [91, 150, "D", 20, 2, 3], [151, 280, "E", 32, 5, 6], [281, 500, "F", 50, 7, 8],
-    [501, 1200, "G", 80, 10, 11], [1201, 3200, "H", 125, 14, 15], [3201, 10000, "J", 200, 21, 22]
+    [2, 8, "A", 2, 0, 1], [9, 15, "A", 2, 0, 1], [16, 25, "B", 3, 0, 1], [26, 50, "C", 5, 0, 1],
+    [51, 90, "C", 5, 0, 1], [91, 150, "D", 8, 1, 2], [151, 280, "E", 13, 1, 2], [281, 500, "F", 20, 2, 3],
+    [501, 1200, "G", 32, 5, 6], [1201, 3200, "H", 50, 7, 8], [3201, 10000, "J", 80, 10, 11]
   ]);
 });
 
 /* ---------- AQL ---------- */
-test("aql edge sizes: Level I / 6.5 boundaries; >10,000 stays J 200 21/22; 1 piece = whole lot; invalid -> null", () => {
+test("aql edge sizes: Level I / 6.5 boundaries; >10,000 stays J 80 10/11; 1 piece = whole lot; invalid -> null", () => {
   const a = n => JSON.parse(JSON.stringify(ctx.aql_(n)));
   [
     [1, { code: "A", n: 1, ac: 0, re: 1 }],
     [2, { code: "A", n: 2, ac: 0, re: 1 }], [8, { code: "A", n: 2, ac: 0, re: 1 }],
-    [9, { code: "A", n: 3, ac: 0, re: 1 }], [15, { code: "A", n: 3, ac: 0, re: 1 }],
-    [16, { code: "B", n: 5, ac: 0, re: 1 }], [25, { code: "B", n: 5, ac: 0, re: 1 }],
-    [26, { code: "C", n: 8, ac: 1, re: 2 }], [50, { code: "C", n: 8, ac: 1, re: 2 }],
-    [51, { code: "C", n: 13, ac: 1, re: 2 }], [90, { code: "C", n: 13, ac: 1, re: 2 }],
-    [91, { code: "D", n: 20, ac: 2, re: 3 }], [150, { code: "D", n: 20, ac: 2, re: 3 }],
-    [151, { code: "E", n: 32, ac: 5, re: 6 }], [280, { code: "E", n: 32, ac: 5, re: 6 }],
-    [281, { code: "F", n: 50, ac: 7, re: 8 }], [500, { code: "F", n: 50, ac: 7, re: 8 }],
-    [501, { code: "G", n: 80, ac: 10, re: 11 }], [1200, { code: "G", n: 80, ac: 10, re: 11 }],
-    [1201, { code: "H", n: 125, ac: 14, re: 15 }], [3200, { code: "H", n: 125, ac: 14, re: 15 }],
-    [3201, { code: "J", n: 200, ac: 21, re: 22 }], [10000, { code: "J", n: 200, ac: 21, re: 22 }],
-    [10001, { code: "J", n: 200, ac: 21, re: 22 }]
+    [9, { code: "A", n: 2, ac: 0, re: 1 }], [15, { code: "A", n: 2, ac: 0, re: 1 }],
+    [16, { code: "B", n: 3, ac: 0, re: 1 }], [25, { code: "B", n: 3, ac: 0, re: 1 }],
+    [26, { code: "C", n: 5, ac: 0, re: 1 }], [50, { code: "C", n: 5, ac: 0, re: 1 }],
+    [51, { code: "C", n: 5, ac: 0, re: 1 }], [90, { code: "C", n: 5, ac: 0, re: 1 }],
+    [91, { code: "D", n: 8, ac: 1, re: 2 }], [150, { code: "D", n: 8, ac: 1, re: 2 }],
+    [151, { code: "E", n: 13, ac: 1, re: 2 }], [280, { code: "E", n: 13, ac: 1, re: 2 }],
+    [281, { code: "F", n: 20, ac: 2, re: 3 }], [500, { code: "F", n: 20, ac: 2, re: 3 }],
+    [501, { code: "G", n: 32, ac: 5, re: 6 }], [1200, { code: "G", n: 32, ac: 5, re: 6 }],
+    [1201, { code: "H", n: 50, ac: 7, re: 8 }], [3200, { code: "H", n: 50, ac: 7, re: 8 }],
+    [3201, { code: "J", n: 80, ac: 10, re: 11 }], [10000, { code: "J", n: 80, ac: 10, re: 11 }],
+    [10001, { code: "J", n: 80, ac: 10, re: 11 }]
   ].forEach(([lot, expected]) => assert.deepStrictEqual(a(lot), expected, "lot " + lot));
   assert.strictEqual(ctx.aql_(0), null);
   assert.strictEqual(ctx.aql_(""), null);
@@ -528,7 +528,7 @@ test("submit: new sheet pending, PI- number, AQL from lot, weights avg / out cou
   assert.strictEqual(r.status, "pending");
   assert.strictEqual(r.received_at, "2026-11-10 09:30:00");
   assert.strictEqual(r.lot_qty, 5000);
-  assert.deepStrictEqual([r.aql_code, r.sample_n, r.ac, r.re], ["J", 200, 21, 22]);
+  assert.deepStrictEqual([r.aql_code, r.sample_n, r.ac, r.re], ["J", 80, 10, 11]);
   assert.deepStrictEqual(r.checks, [true, false, true, true, true]);
   assert.deepStrictEqual(r.criteria_notes, { bottle: note });
   assert.deepStrictEqual(r.weights, [12.4, 12.5, null, 12.3]);
@@ -552,7 +552,7 @@ test("submit validation: required fields, supplier / item from the list, signatu
   err(pub("submit", form({ invoice_no: "" })), /เลขที่ใบส่งของ/);
   err(pub("submit", form({ lot_qty: "0" })), /จำนวนที่ส่งมอบต้องอยู่ระหว่าง 1/);
   err(pub("submit", form({ lot_qty: "abc" })), /จำนวนเต็ม/);
-  err(pub("submit", form({ defects: 201 })), /ของเสียที่พบต้องอยู่ระหว่าง 0 ถึง 200/);
+  err(pub("submit", form({ defects: 81 })), /ของเสียที่พบต้องอยู่ระหว่าง 0 ถึง 80/);
   err(pub("submit", form({ cat_result: "" })), /Pass \/ Fail/);
   err(pub("submit", form({ result: "" })), /ผ่าน \/ ไม่ผ่าน/);
   err(pub("submit", form({ result: "fail", defect_detail: "" })), /รายละเอียดข้อบกพร่อง/);
@@ -593,9 +593,9 @@ test("a failing Drive write trashes the files the request already created; no ro
 test("weights: out-of-tolerance counted; more weights than the sample refused; label (not weighed) ignores weights", () => {
   const d = okData(pub("submit", form({ lot_qty: 20, weights: [11.9, 12.5, 12.9], lot_no: "LOT-W" })));
   const r = okData(pub("inspection", { id: d.id })).inspection;
-  assert.deepStrictEqual([r.aql_code, r.sample_n, r.ac, r.re], ["B", 5, 0, 1]);
+  assert.deepStrictEqual([r.aql_code, r.sample_n, r.ac, r.re], ["B", 3, 0, 1]);
   assert.strictEqual(r.w_out, 2);
-  err(pub("submit", form({ lot_qty: 20, weights: [1, 2, 3, 4, 5, 6] })), /ไม่เกินจำนวนตัวอย่าง \(5 ชิ้น\)/);
+  err(pub("submit", form({ lot_qty: 20, weights: [1, 2, 3, 4] })), /ไม่เกินจำนวนตัวอย่าง \(3 ชิ้น\)/);
   const l = okData(pub("inspection", { id: okData(pub("submit", form({ item_id: I.label.id, checks: [true, true, true, true], weights: [5], lot_no: "LOT-L" }))).id })).inspection;
   assert.deepStrictEqual(l.weights, []);
   assert.strictEqual(l.w_avg, null);

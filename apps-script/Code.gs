@@ -103,12 +103,12 @@ var CATEGORIES = [
 
 /* AQL: ISO 2859-1, General Inspection Level I, AQL 6.5 (approved reference table).
  * [lot from, lot to, code, sample size, Ac, Re]. Above 10,000 the 6.5 column
- * points back to code J, so the plan stays J / 200 / 21 / 22. A lot of 1 piece
+ * points back to code J, so the plan stays J / 80 / 10 / 11. A lot of 1 piece
  * is inspected whole (code A row, sample 1). */
 var AQL_TABLE = [
-  [2, 8, "A", 2, 0, 1], [9, 15, "A", 3, 0, 1], [16, 25, "B", 5, 0, 1], [26, 50, "C", 8, 1, 2],
-  [51, 90, "C", 13, 1, 2], [91, 150, "D", 20, 2, 3], [151, 280, "E", 32, 5, 6], [281, 500, "F", 50, 7, 8],
-  [501, 1200, "G", 80, 10, 11], [1201, 3200, "H", 125, 14, 15], [3201, 10000, "J", 200, 21, 22]
+  [2, 8, "A", 2, 0, 1], [9, 15, "A", 2, 0, 1], [16, 25, "B", 3, 0, 1], [26, 50, "C", 5, 0, 1],
+  [51, 90, "C", 5, 0, 1], [91, 150, "D", 8, 1, 2], [151, 280, "E", 13, 1, 2], [281, 500, "F", 20, 2, 3],
+  [501, 1200, "G", 32, 5, 6], [1201, 3200, "H", 50, 7, 8], [3201, 10000, "J", 80, 10, 11]
 ];
 var AQL_LEVEL = "I";
 var AQL_VALUE = "6.5";
