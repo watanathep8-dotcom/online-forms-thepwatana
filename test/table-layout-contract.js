@@ -24,5 +24,6 @@ assert.ok(cssSource.includes('font-variant-numeric: tabular-nums'), 'numeric cel
 assert.ok(cssSource.includes('.pending-list th:nth-child(6)'), 'approval quantity column should have an explicit width');
 assert.ok(cssSource.includes('overflow-wrap: anywhere'), 'long labels should wrap instead of squeezing other columns');
 assert.ok(htmlSource.includes('assets/style.css?v=4'), 'stylesheet cache version should be bumped for the layout update');
+assert.ok(htmlSource.includes('assets/app.js?v=8'), 'script cache version should be bumped for the table markup update');
 
 console.log('table-layout-contract: ok');
