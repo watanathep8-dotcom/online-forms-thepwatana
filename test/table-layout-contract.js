@@ -21,9 +21,11 @@ const htmlSource = fs.readFileSync(path.join(root, 'docs', 'index.html'), 'utf8'
 
 assert.ok(cssSource.includes('table-layout: fixed'), 'list tables should use predictable column sizing');
 assert.ok(cssSource.includes('font-variant-numeric: tabular-nums'), 'numeric cells should use tabular figures');
+assert.ok(cssSource.includes(".list th, .list td { font-family: 'Kanit', sans-serif;"), 'list headers and body cells should use the same font');
+assert.ok(cssSource.includes("table th, table td { font-family: 'Kanit', sans-serif;"), 'all table pages should use the same font family');
 assert.ok(cssSource.includes('.pending-list th:nth-child(6)'), 'approval quantity column should have an explicit width');
 assert.ok(cssSource.includes('overflow-wrap: anywhere'), 'long labels should wrap instead of squeezing other columns');
-assert.ok(htmlSource.includes('assets/style.css?v=4'), 'stylesheet cache version should be bumped for the layout update');
+assert.ok(htmlSource.includes('assets/style.css?v=5'), 'stylesheet cache version should be bumped for the typography update');
 assert.ok(htmlSource.includes('assets/app.js?v=8'), 'script cache version should be bumped for the table markup update');
 
 console.log('table-layout-contract: ok');

@@ -103,6 +103,7 @@ textarea.inp { resize: vertical; }
 .pf { display: flex; flex-direction: column; gap: 16px; }
 .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-gutter: stable; }
 table { border-collapse: collapse; width: 100%; }
+table th, table td { font-family: 'Kanit', sans-serif; }
 .crit th { background: #eef2f9; font-size: 13px; font-weight: 600; text-align: left; padding: 10px; border: 1px solid var(--line); }
 .crit td { border: 1px solid var(--line); padding: 10px; vertical-align: top; font-size: 14px; }
 .crit td.ck { text-align: center; color: var(--green); width: 56px; }
@@ -195,7 +196,8 @@ table { border-collapse: collapse; width: 100%; }
 .filters .inp { width: auto; min-width: 150px; flex: 1; }
 .filters .dt { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
 .list { table-layout: fixed; }
-.list th { background: #eef2f9; font-size: 13px; font-weight: 600; text-align: left; padding: 9px 10px; white-space: nowrap; }
+.list th, .list td { font-family: 'Kanit', sans-serif; }
+.list th { background: #eef2f9; font-size: 14px; font-weight: 600; text-align: left; padding: 9px 10px; white-space: nowrap; }
 .list td { border-top: 1px solid var(--line); padding: 9px 10px; font-size: 14px; vertical-align: top; overflow-wrap: anywhere; }
 .list tr[data-open], .list tr[data-sup] { cursor: pointer; }
 .list tr[data-open]:hover, .list tr[data-sup]:hover { background: #f8fbff; }
