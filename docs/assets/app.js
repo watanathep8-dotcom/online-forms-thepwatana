@@ -19,7 +19,7 @@ const PAGES = {
   new: ['ตรวจรับใหม่', 'ใบตรวจรับบรรจุภัณฑ์ · AQL'],
   edit: ['แก้ไขใบที่ถูกตีกลับ', 'แก้ไขแล้วส่งให้หัวหน้า QC อีกครั้ง (เลขที่ใบเดิม)'],
   pending: ['รออนุมัติ', 'ใบตรวจรับที่รอหัวหน้า QC ตรวจและลงนาม'],
-  history: ['ประวัติการตรวจรับ', 'ค้นหาจากวันที่ Supplier บรรจุภัณฑ์ PO หรือ Lot'],
+  history: ['ประวัติการตรวจรับ', 'ค้นหาจากวันที่ Supplier บรรจุภัณฑ์ PO ใบส่งของ หรือชื่อ'],
   sheet: ['ใบตรวจรับ', ''],
   summary: ['สรุป Supplier', 'จำนวนส่งมอบและ % ไม่ผ่าน ของแต่ละ Supplier'],
   settings: ['ตั้งค่ารายชื่อ', 'Supplier · บรรจุภัณฑ์ (มาตรฐาน) · หัวหน้า QC'],
@@ -358,7 +358,7 @@ async function pageForm(editId) {
       <label class="fld">รหัสสินค้า (Item Code / SKU)<input class="inp" id="itemCode" readonly placeholder="เลือกรายการก่อน"></label>
       <label class="fld"><span>เลขที่ใบสั่งซื้อ (PO No.) <em>*</em></span><input class="inp" name="po_no" maxlength="60" value="${esc(old?.po_no)}" placeholder="PO-2026-XXXX" required></label>
       <label class="fld"><span>เลขที่ใบส่งของ (Invoice / Delivery Note) <em>*</em></span><input class="inp" name="invoice_no" maxlength="60" value="${esc(old?.invoice_no)}" placeholder="DN-2026-XXXX" required></label>
-      <label class="fld"><span>จำนวนที่ส่งมอบ (Lot / Order Qty) <em>*</em></span><span class="row2 r21"><input class="inp" name="lot_qty" inputmode="numeric" value="${old ? old.lot_qty : ''}" placeholder="เช่น 5000" required><input class="inp" name="unit" maxlength="30" value="${esc(old?.unit || 'ชิ้น')}"></span></label>
+      <label class="fld"><span>จำนวนที่ส่งมอบ (Order Qty) <em>*</em></span><span class="row2 r21"><input class="inp" name="lot_qty" inputmode="numeric" value="${old ? old.lot_qty : ''}" placeholder="เช่น 5000" required><input class="inp" name="unit" maxlength="30" value="${esc(old?.unit || 'ชิ้น')}"></span></label>
       <label class="fld">จำนวนสุ่มตรวจ (Sample Size / AQL)<input class="inp" id="sampleOut" readonly placeholder="คำนวณจากจำนวนที่ส่งมอบ"></label>
     </div>
   </section>
@@ -386,7 +386,7 @@ async function pageForm(editId) {
       <div class="fld"><span>ผลตามเกณฑ์ AQL</span><div id="aqlVerdict" class="verdict">—</div></div>
     </div>
     <details class="aql-ref"><summary><i class="fa-solid fa-table"></i> ตาราง AQL ระดับ ${esc(b.aql.level)} · ${esc(b.aql.value)}</summary>
-      <table class="mini"><thead><tr><th>ขนาด Lot</th><th>Code</th><th>ตัวอย่าง</th><th>Ac</th><th>Re</th></tr></thead><tbody>
+      <table class="mini"><thead><tr><th>ขนาดจำนวนส่งมอบ</th><th>Code</th><th>ตัวอย่าง</th><th>Ac</th><th>Re</th></tr></thead><tbody>
       ${b.aql.table.map(r => `<tr><td>${fmt(r[0])} – ${fmt(r[1])}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('')}
       <tr><td>10,001 ขึ้นไป</td><td>${lastAql[2]}</td><td>${lastAql[3]}</td><td>${lastAql[4]}</td><td>${lastAql[5]}</td></tr></tbody></table></details>
     <div id="weightBox"></div>
@@ -680,9 +680,9 @@ async function pagePending() {
   if ($('#qcLogin')) $('#qcLogin').onclick = async () => { if (await askUnlock('qc', 'ใส่รหัสหัวหน้า QC เพื่ออนุมัติ / ตีกลับใบตรวจรับ')) pagePending(); };
 }
 function listTable(items) {
-  return `<div class="tbl-wrap"><table class="list pending-list"><thead><tr><th>เลขที่</th><th>วันที่รับเข้า</th><th>Supplier</th><th>บรรจุภัณฑ์</th><th>PO / Lot</th><th class="num-cell">จำนวน</th><th>ผล</th><th>สถานะ</th><th>ผู้ตรวจรับ</th></tr></thead><tbody>
+  return `<div class="tbl-wrap"><table class="list pending-list"><thead><tr><th>เลขที่</th><th>วันที่รับเข้า</th><th>Supplier</th><th>บรรจุภัณฑ์</th><th>PO</th><th class="num-cell">จำนวน</th><th>ผล</th><th>สถานะ</th><th>ผู้ตรวจรับ</th></tr></thead><tbody>
   ${items.map(r => `<tr data-open="${r.id}"><td><b>${esc(r.doc_no)}</b></td><td class="nw">${dtTH(r.received_at)}</td><td>${esc(r.supplier_name)}</td><td>${esc(r.item_name)}<br><small class="dim">${esc(r.item_code)}</small></td>
-  <td><small>PO</small> ${esc(r.po_no)}<br><small>Lot</small> ${esc(r.lot_no)}</td><td class="num-cell nw">${fmt(r.lot_qty)} ${esc(r.unit)}</td><td>${pill(RESULT, r.result)}</td><td>${pill(STATUS, r.status)}</td><td>${esc(r.inspector)}</td></tr>`).join('')}
+  <td>${esc(r.po_no)}</td><td class="num-cell nw">${fmt(r.lot_qty)} ${esc(r.unit)}</td><td>${pill(RESULT, r.result)}</td><td>${pill(STATUS, r.status)}</td><td>${esc(r.inspector)}</td></tr>`).join('')}
   </tbody></table></div>`;
 }
 view.addEventListener('click', e => {
@@ -696,7 +696,7 @@ async function pageHistory() {
   const q = S.histQ || { q: '', supplier_id: '', item_id: '', status: '', result: '', from: '', to: '' };
   view.innerHTML = `<div class="card">
     <form class="filters" id="hf">
-      <input class="inp" name="q" value="${esc(q.q)}" placeholder="ค้นหา เลขที่ใบ / PO / Lot / ใบส่งของ / ชื่อ">
+      <input class="inp" name="q" value="${esc(q.q)}" placeholder="ค้นหา เลขที่ใบ / PO / ใบส่งของ / ชื่อ">
       <select class="inp" name="supplier_id"><option value="">ทุก Supplier</option>${b.suppliers.map(s => `<option value="${s.id}" ${String(s.id) === String(q.supplier_id) ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
       <select class="inp" name="item_id"><option value="">ทุกบรรจุภัณฑ์</option>${b.items.map(i => `<option value="${i.id}" ${String(i.id) === String(q.item_id) ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</select>
       <select class="inp" name="status"><option value="">ทุกสถานะ</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${q.status === k ? 'selected' : ''}>${v.t}</option>`).join('')}</select>
@@ -745,7 +745,7 @@ async function pageSheet(id) {
       <div><dt>วันที่และเวลาที่รับเข้า</dt><dd>${dtTH(r.received_at)}</dd></div><div><dt>Supplier / ผู้จัดส่ง</dt><dd>${esc(r.supplier_name)}</dd></div>
       <div><dt>รายการ Packaging</dt><dd>${esc(r.item_name)}</dd></div><div><dt>รหัสสินค้า</dt><dd>${esc(r.item_code || '—')}</dd></div>
       <div><dt>เลขที่ PO</dt><dd>${esc(r.po_no)}</dd></div><div><dt>เลขที่ใบส่งของ</dt><dd>${esc(r.invoice_no)}</dd></div>
-      <div><dt>จำนวนที่ส่งมอบ</dt><dd>${fmt(r.lot_qty)} ${esc(r.unit)}</dd></div><div><dt>เลขที่ Lot / Batch</dt><dd>${esc(r.lot_no)}</dd></div>
+      <div><dt>จำนวนที่ส่งมอบ</dt><dd>${fmt(r.lot_qty)} ${esc(r.unit)}</dd></div>
     </dl>
     <h3>2. เกณฑ์การตรวจสอบ — ${esc(cat.name)} ${pill({ pass: { t: 'Pass', c: 'green', i: 'fa-check' }, fail: { t: 'Fail', c: 'red', i: 'fa-xmark' } }, r.cat_result)}</h3>
     <ul class="checks">${cat.checks.map((t, i) => `<li class="${r.checks[i] ? 'y' : 'n'}"><i class="fa-${r.checks[i] ? 'solid fa-square-check' : 'regular fa-square'}"></i>${esc(t)}</li>`).join('')}

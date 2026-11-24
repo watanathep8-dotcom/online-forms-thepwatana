@@ -7,6 +7,12 @@ const gasSource = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Cod
 
 assert.ok(!appSource.includes('เลขที่ Lot / Batch No.'), 'new inspection form must not render the Lot / Batch field');
 assert.ok(!appSource.includes("['lot_no', 'เลขที่ Lot']"), 'Lot / Batch must not be required by the client form');
+assert.ok(!appSource.includes('PO / Lot'), 'list tables must not show a Lot column label');
+assert.ok(!appSource.includes('<small>Lot</small>'), 'list tables must not show Lot row labels');
+assert.ok(!appSource.includes('เลขที่ Lot / Batch'), 'inspection detail must not show the Lot / Batch row');
+assert.ok(!appSource.includes('ค้นหา เลขที่ใบ / PO / Lot'), 'history search must not advertise Lot');
+assert.ok(!appSource.includes('จำนวนที่ส่งมอบ (Lot / Order Qty)'), 'entry form must not show Lot in the quantity label');
+assert.ok(!appSource.includes('ขนาด Lot'), 'AQL reference table must not show Lot in its heading');
 assert.ok(!gasSource.includes('requiredText_(input, "lot_no"'), 'backend must accept submissions without Lot / Batch');
 assert.ok(!appSource.includes('3. ตัวแทนผู้จัดส่ง / Supplier'), 'new inspection form must not render the supplier representative section');
 assert.ok(!appSource.includes('billCam') && !appSource.includes('billUp'), 'new inspection form must not render bill upload controls');
