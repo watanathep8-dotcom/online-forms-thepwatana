@@ -680,9 +680,9 @@ async function pagePending() {
   if ($('#qcLogin')) $('#qcLogin').onclick = async () => { if (await askUnlock('qc', 'ใส่รหัสหัวหน้า QC เพื่ออนุมัติ / ตีกลับใบตรวจรับ')) pagePending(); };
 }
 function listTable(items) {
-  return `<div class="tbl-wrap"><table class="list"><thead><tr><th>เลขที่</th><th>วันที่รับเข้า</th><th>Supplier</th><th>บรรจุภัณฑ์</th><th>PO / Lot</th><th class="num">จำนวน</th><th>ผล</th><th>สถานะ</th><th>ผู้ตรวจรับ</th></tr></thead><tbody>
+  return `<div class="tbl-wrap"><table class="list pending-list"><thead><tr><th>เลขที่</th><th>วันที่รับเข้า</th><th>Supplier</th><th>บรรจุภัณฑ์</th><th>PO / Lot</th><th class="num-cell">จำนวน</th><th>ผล</th><th>สถานะ</th><th>ผู้ตรวจรับ</th></tr></thead><tbody>
   ${items.map(r => `<tr data-open="${r.id}"><td><b>${esc(r.doc_no)}</b></td><td class="nw">${dtTH(r.received_at)}</td><td>${esc(r.supplier_name)}</td><td>${esc(r.item_name)}<br><small class="dim">${esc(r.item_code)}</small></td>
-  <td><small>PO</small> ${esc(r.po_no)}<br><small>Lot</small> ${esc(r.lot_no)}</td><td class="num nw">${fmt(r.lot_qty)} ${esc(r.unit)}</td><td>${pill(RESULT, r.result)}</td><td>${pill(STATUS, r.status)}</td><td>${esc(r.inspector)}</td></tr>`).join('')}
+  <td><small>PO</small> ${esc(r.po_no)}<br><small>Lot</small> ${esc(r.lot_no)}</td><td class="num-cell nw">${fmt(r.lot_qty)} ${esc(r.unit)}</td><td>${pill(RESULT, r.result)}</td><td>${pill(STATUS, r.status)}</td><td>${esc(r.inspector)}</td></tr>`).join('')}
   </tbody></table></div>`;
 }
 view.addEventListener('click', e => {
@@ -823,8 +823,8 @@ async function pageSummary() {
     try {
       const s = await api('summary', p);
       $('#sres').innerHTML = `<div class="grid3 mt"><div class="stat"><small>ใบตรวจรับ (ไม่นับใบที่ตีกลับ)</small><b>${fmt(s.total)}</b></div><div class="stat bad"><small>ไม่ผ่าน</small><b>${fmt(s.fail)}</b></div><div class="stat"><small>% ไม่ผ่านรวม</small><b>${s.pct}%</b></div></div>
-      ${s.rows.length ? `<div class="tbl-wrap"><table class="list sum"><thead><tr><th>#</th><th>Supplier</th><th class="num">ส่งมอบ</th><th class="num">ไม่ผ่าน</th><th>% ไม่ผ่าน</th><th>ไม่ผ่านล่าสุด</th></tr></thead><tbody>
-      ${s.rows.map((r, i) => `<tr data-sup="${r.supplier_id}"><td>${i + 1}</td><td><b>${esc(r.supplier)}</b>${r.pending ? `<br><small class="dim">รออนุมัติ ${r.pending}</small>` : ''}</td><td class="num">${fmt(r.total)}</td><td class="num ${r.fail ? 'tbad' : ''}">${fmt(r.fail)}</td>
+      ${s.rows.length ? `<div class="tbl-wrap"><table class="list sum-list"><thead><tr><th>#</th><th>Supplier</th><th class="num-cell">ส่งมอบ</th><th class="num-cell">ไม่ผ่าน</th><th>% ไม่ผ่าน</th><th>ไม่ผ่านล่าสุด</th></tr></thead><tbody>
+      ${s.rows.map((r, i) => `<tr data-sup="${r.supplier_id}"><td>${i + 1}</td><td><b>${esc(r.supplier)}</b>${r.pending ? `<br><small class="dim">รออนุมัติ ${r.pending}</small>` : ''}</td><td class="num-cell">${fmt(r.total)}</td><td class="num-cell ${r.fail ? 'tbad' : ''}">${fmt(r.fail)}</td>
         <td><div class="bar"><i style="width:${Math.min(100, r.pct)}%" class="${r.pct >= 20 ? 'hi' : r.pct > 0 ? 'mid' : ''}"></i><span>${r.pct}%</span></div></td><td class="nw">${r.last_fail ? dTH(r.last_fail) : '—'}</td></tr>`).join('')}</tbody></table></div>
       <p class="hint">กดที่ Supplier เพื่อดูประวัติการตรวจรับของรายนั้น</p>` : '<div class="empty"><i class="fa-solid fa-chart-column"></i>ยังไม่มีข้อมูลในช่วงนี้</div>'}`;
       $$('[data-sup]', $('#sres')).forEach(tr => tr.onclick = () => { S.histQ = { q: '', supplier_id: tr.dataset.sup, item_id: '', status: '', result: '', from: p.from || '', to: p.to || '' }; location.hash = '#history'; });
@@ -843,11 +843,11 @@ async function pageSettings() {
   const act = x => x.active ? '' : ' <span class="pill sm">ปิดใช้งาน</span>';
   view.innerHTML = `
   <div class="card"><div class="card-h"><h2><i class="fa-solid fa-truck"></i> Supplier <span class="pill">${b.suppliers.length}</span></h2><button class="btn sm primary" data-add="suppliers"><i class="fa-solid fa-plus"></i> เพิ่ม Supplier</button></div>
-    <div class="tbl-wrap"><table class="list"><thead><tr><th>ชื่อบริษัท</th><th>ผู้ติดต่อ / โทร</th><th></th></tr></thead><tbody>${b.suppliers.map(s => `<tr><td>${esc(s.name)}${act(s)}</td><td>${esc(s.contact)}</td><td class="acts-c">${editBtns('suppliers', s.id)}</td></tr>`).join('') || '<tr><td colspan="3" class="dim">ยังไม่มี</td></tr>'}</tbody></table></div></div>
+    <div class="tbl-wrap"><table class="list settings-list"><thead><tr><th>ชื่อบริษัท</th><th>ผู้ติดต่อ / โทร</th><th></th></tr></thead><tbody>${b.suppliers.map(s => `<tr><td>${esc(s.name)}${act(s)}</td><td>${esc(s.contact)}</td><td class="acts-c">${editBtns('suppliers', s.id)}</td></tr>`).join('') || '<tr><td colspan="3" class="dim">ยังไม่มี</td></tr>'}</tbody></table></div></div>
   <div class="card"><div class="card-h"><h2><i class="fa-solid fa-box-open"></i> บรรจุภัณฑ์ (มาตรฐาน) <span class="pill">${b.items.length}</span></h2><button class="btn sm primary" data-add="items"><i class="fa-solid fa-plus"></i> เพิ่มบรรจุภัณฑ์</button></div>
-    <div class="tbl-wrap"><table class="list"><thead><tr><th>ชื่อรายการ</th><th>รหัส</th><th>หมวด</th><th>น้ำหนักที่ยอมรับ</th><th></th></tr></thead><tbody>${b.items.map(i => `<tr><td>${esc(i.name)}${act(i)}</td><td>${esc(i.code)}</td><td><small>${esc(catName(i.category))}</small></td><td class="nw">${i.wmin ?? '—'} – ${i.wmax ?? '—'} ${esc(i.wunit)}</td><td class="acts-c">${editBtns('items', i.id)}</td></tr>`).join('') || '<tr><td colspan="5" class="dim">ยังไม่มี</td></tr>'}</tbody></table></div></div>
+    <div class="tbl-wrap"><table class="list items-list"><thead><tr><th>ชื่อรายการ</th><th>รหัส</th><th>หมวด</th><th>น้ำหนักที่ยอมรับ</th><th></th></tr></thead><tbody>${b.items.map(i => `<tr><td>${esc(i.name)}${act(i)}</td><td>${esc(i.code)}</td><td><small>${esc(catName(i.category))}</small></td><td class="nw">${i.wmin ?? '—'} – ${i.wmax ?? '—'} ${esc(i.wunit)}</td><td class="acts-c">${editBtns('items', i.id)}</td></tr>`).join('') || '<tr><td colspan="5" class="dim">ยังไม่มี</td></tr>'}</tbody></table></div></div>
   <div class="card"><div class="card-h"><h2><i class="fa-solid fa-user-check"></i> หัวหน้า QC <span class="pill">${b.heads.length}</span></h2><button class="btn sm primary" data-add="heads"><i class="fa-solid fa-plus"></i> เพิ่มหัวหน้า QC</button></div>
-    <div class="tbl-wrap"><table class="list"><thead><tr><th>ชื่อ</th><th></th></tr></thead><tbody>${b.heads.map(h => `<tr><td>${esc(h.name)}${act(h)}</td><td class="acts-c">${editBtns('heads', h.id)}</td></tr>`).join('') || '<tr><td colspan="2" class="dim">ยังไม่มี</td></tr>'}</tbody></table></div></div>`;
+    <div class="tbl-wrap"><table class="list heads-list"><thead><tr><th>ชื่อ</th><th></th></tr></thead><tbody>${b.heads.map(h => `<tr><td>${esc(h.name)}${act(h)}</td><td class="acts-c">${editBtns('heads', h.id)}</td></tr>`).join('') || '<tr><td colspan="2" class="dim">ยังไม่มี</td></tr>'}</tbody></table></div></div>`;
   $$('[data-add]', view).forEach(x => x.onclick = () => listForm(x.dataset.add, null));
   $$('[data-edit]', view).forEach(x => x.onclick = () => listForm(x.dataset.list, b[x.dataset.list].find(r => r.id === +x.dataset.edit)));
   $$('[data-del]', view).forEach(x => x.onclick = async () => {
@@ -886,7 +886,7 @@ async function pageLogs() {
   if (!(await askUnlock('admin', 'บันทึกประวัติ (Log) ต้องใช้รหัสผู้ดูแลระบบ'))) { view.innerHTML = '<div class="card empty"><i class="fa-solid fa-lock"></i>ต้องใช้รหัสผู้ดูแลระบบ</div>'; return; }
   const items = (await api('logs', {})).items;
   view.innerHTML = `<div class="card"><div class="card-h"><h2><i class="fa-solid fa-clipboard-list"></i> ${fmt(items.length)} รายการ</h2><button class="btn sm dark" id="csvBtn"><i class="fa-solid fa-file-csv"></i> ส่งออก CSV</button></div>
-  <div class="tbl-wrap"><table class="list"><thead><tr><th>เวลา</th><th>หมวด</th><th>อ้างอิง</th><th>รายละเอียด</th><th>ผู้ทำรายการ</th></tr></thead><tbody>
+  <div class="tbl-wrap"><table class="list logs-list"><thead><tr><th>เวลา</th><th>หมวด</th><th>อ้างอิง</th><th>รายละเอียด</th><th>ผู้ทำรายการ</th></tr></thead><tbody>
   ${items.map(l => `<tr><td class="nw">${dtTH(l.created_at)}</td><td>${esc(l.category)}</td><td>${esc(l.ref)}</td><td>${esc(l.detail)}</td><td>${esc(l.actor)}</td></tr>`).join('')}</tbody></table></div></div>`;
   $('#csvBtn').onclick = async () => {
     try {
