@@ -23,9 +23,10 @@ assert.ok(cssSource.includes('table-layout: fixed'), 'list tables should use pre
 assert.ok(cssSource.includes('font-variant-numeric: tabular-nums'), 'numeric cells should use tabular figures');
 assert.ok(cssSource.includes(".list th, .list td { font-family: 'Kanit', sans-serif;"), 'list headers and body cells should use the same font');
 assert.ok(cssSource.includes("table th, table td { font-family: 'Kanit', sans-serif;"), 'all table pages should use the same font family');
+assert.ok(cssSource.includes('.num-cell { text-align: left;'), 'numeric cells should start on the same left edge as their headers');
 assert.ok(cssSource.includes('.pending-list th:nth-child(6)'), 'approval quantity column should have an explicit width');
 assert.ok(cssSource.includes('overflow-wrap: anywhere'), 'long labels should wrap instead of squeezing other columns');
-assert.ok(htmlSource.includes('assets/style.css?v=5'), 'stylesheet cache version should be bumped for the typography update');
+assert.ok(htmlSource.includes('assets/style.css?v=6'), 'stylesheet cache version should be bumped for the alignment update');
 assert.ok(htmlSource.includes('assets/app.js?v=8'), 'script cache version should be bumped for the table markup update');
 
 console.log('table-layout-contract: ok');

@@ -201,7 +201,7 @@ table th, table td { font-family: 'Kanit', sans-serif; }
 .list td { border-top: 1px solid var(--line); padding: 9px 10px; font-size: 14px; vertical-align: top; overflow-wrap: anywhere; }
 .list tr[data-open], .list tr[data-sup] { cursor: pointer; }
 .list tr[data-open]:hover, .list tr[data-sup]:hover { background: #f8fbff; }
-.num-cell { text-align: right; white-space: nowrap; font-family: 'Kanit', 'Sarabun', sans-serif; font-variant-numeric: tabular-nums; }
+.num-cell { text-align: left; white-space: nowrap; font-family: 'Kanit', 'Sarabun', sans-serif; font-variant-numeric: tabular-nums; }
 .nw { white-space: nowrap; }
 .acts-c { white-space: nowrap; text-align: right; }
 .bar { position: relative; height: 22px; background: #f1f5f9; border-radius: 6px; min-width: 120px; overflow: hidden; }
