@@ -214,16 +214,17 @@ table.pending-list { width: 100%; min-width: 0; }
 .pending-list th { white-space: normal; line-height: 1.25; }
 .pending-list th:nth-child(1) { width: 12%; }
 .pending-list th:nth-child(2) { width: 13%; }
-.pending-list th:nth-child(3) { width: 14%; }
-.pending-list th:nth-child(4) { width: 18%; }
+.pending-list th:nth-child(3) { width: 12%; }
+.pending-list th:nth-child(4) { width: 16%; }
 .pending-list th:nth-child(5) { width: 9%; }
 .pending-list th:nth-child(6), .pending-list td:nth-child(6) { width: 10%; min-width: 0; }
 .pending-list th:nth-child(7) { width: 7%; }
 .pending-list th:nth-child(8), .pending-list td:nth-child(8) { width: 10%; min-width: 0; }
-.pending-list th:nth-child(9) { width: 7%; }
+.pending-list th:nth-child(9) { width: 11%; }
 .pending-list .nw { white-space: normal; }
 .pending-list td:nth-child(6) { color: var(--navy-2); font-weight: 600; }
 .pending-list td:nth-child(8) .pill { max-width: 100%; white-space: normal; justify-content: center; text-align: center; line-height: 1.25; }
+.pending-list td:nth-child(9) { overflow-wrap: normal; word-break: keep-all; }
 
 table.sum-list { min-width: 760px; }
 .sum-list th:nth-child(1) { width: 52px; }
