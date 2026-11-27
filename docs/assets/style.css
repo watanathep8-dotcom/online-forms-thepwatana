@@ -210,17 +210,18 @@ table th, table td { font-family: 'Kanit', sans-serif; }
 .bar span { position: relative; padding-left: 8px; font: 600 13px/22px 'Kanit'; }
 
 /* Fixed profiles keep important values readable while allowing narrow screens to scroll. */
-table.pending-list { min-width: 1349px; }
-.pending-list th:nth-child(1) { width: 145px; }
-.pending-list th:nth-child(2) { width: 150px; }
-.pending-list th:nth-child(3) { width: 195px; }
-.pending-list th:nth-child(4) { width: 230px; }
-.pending-list th:nth-child(5) { width: 145px; }
-.pending-list th:nth-child(6), .pending-list td:nth-child(6) { width: 125px; min-width: 125px; }
-.pending-list th:nth-child(7) { width: 84px; }
-.pending-list th:nth-child(8) { width: 150px; }
-.pending-list th:nth-child(9) { width: 125px; }
+table.pending-list { min-width: 1288px; }
+.pending-list th:nth-child(1) { width: 135px; }
+.pending-list th:nth-child(2) { width: 140px; }
+.pending-list th:nth-child(3) { width: 185px; }
+.pending-list th:nth-child(4) { width: 220px; }
+.pending-list th:nth-child(5) { width: 135px; }
+.pending-list th:nth-child(6), .pending-list td:nth-child(6) { width: 115px; min-width: 115px; }
+.pending-list th:nth-child(7) { width: 78px; }
+.pending-list th:nth-child(8), .pending-list td:nth-child(8) { width: 165px; min-width: 165px; }
+.pending-list th:nth-child(9) { width: 115px; }
 .pending-list td:nth-child(6) { color: var(--navy-2); font-weight: 600; }
+.pending-list td:nth-child(8) .pill { max-width: 100%; white-space: normal; justify-content: center; text-align: center; line-height: 1.25; }
 
 table.sum-list { min-width: 760px; }
 .sum-list th:nth-child(1) { width: 52px; }
