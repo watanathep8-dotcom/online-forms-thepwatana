@@ -549,7 +549,7 @@ async function pageForm(editId) {
     });
     const s = wStats(), u = esc(state.wunit || '');
     if ($('#wsum')) $('#wsum').innerHTML = `<div><small>เกณฑ์การยอมรับน้ำหนัก</small><b>${state.wmin ?? '—'} – ${state.wmax ?? '—'} ${u}</b></div>
-      <div class="avg"><small>น้ำหนักเฉลี่ย (คำนวณอัตโนมัติ)</small><b>${s.avg == null ? '—' : fmt(s.avg, 3) + ' ' + u}</b></div>
+      <div class="avg"><small>น้ำหนักเฉลี่ย (คำนวณอัตโนมัติ)</small><b>${s.avg == null ? '—' : fmt(s.avg, 2) + ' ' + u}</b></div>
       <div><small>ชั่งแล้ว</small><b>${s.n} ชิ้น</b></div><div class="${s.out ? 'bad' : ''}"><small>นอกเกณฑ์</small><b>${s.out} ชิ้น</b></div>`;
   }
 
@@ -757,7 +757,7 @@ async function pageSheet(id) {
     <h3>3. AQL ระดับ ${esc(b.aql.level)} / ${esc(b.aql.value)}</h3>
     <div class="grid4 kv4"><div class="stat"><small>Code</small><b>${esc(r.aql_code)}</b></div><div class="stat"><small>ตัวอย่าง</small><b>${r.sample_n}</b></div><div class="stat ok"><small>Accept ≤</small><b>${r.ac}</b></div><div class="stat bad"><small>Reject ≥</small><b>${r.re}</b></div></div>
     <p>พบข้อบกพร่อง <b>${r.defects}</b> ชิ้น → ${r.defects >= r.re ? '<b class="tbad">Reject</b>' : '<b class="tok">Accept</b>'}</p>
-    ${cat.weight ? `<h3>น้ำหนักตัวอย่าง</h3><p>เกณฑ์ ${r.wmin ?? '—'} – ${r.wmax ?? '—'} ${esc(r.wunit)} · เฉลี่ย <b>${r.w_avg == null ? '—' : fmt(r.w_avg, 3) + ' ' + esc(r.wunit)}</b> · ชั่ง ${r.w_count} ชิ้น · นอกเกณฑ์ <b class="${r.w_out ? 'tbad' : ''}">${r.w_out}</b> ชิ้น</p>
+    ${cat.weight ? `<h3>น้ำหนักตัวอย่าง</h3><p>เกณฑ์ ${r.wmin ?? '—'} – ${r.wmax ?? '—'} ${esc(r.wunit)} · เฉลี่ย <b>${r.w_avg == null ? '—' : fmt(r.w_avg, 2) + ' ' + esc(r.wunit)}</b> · ชั่ง ${r.w_count} ชิ้น · นอกเกณฑ์ <b class="${r.w_out ? 'tbad' : ''}">${r.w_out}</b> ชิ้น</p>
       ${ws.length ? `<div class="wgrid ro">${ws.map(x => `<span class="${outW(x.w) ? 'bad' : ''}"><small>${x.i + 1}</small>${x.w}</span>`).join('')}</div>` : ''}` : ''}
     <h3>4. ผลการตรวจรับ</h3>
     <p>ผลรวม: ${pill(RESULT, r.result)}</p>

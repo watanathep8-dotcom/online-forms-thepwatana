@@ -24,9 +24,13 @@ assert.ok(cssSource.includes('font-variant-numeric: tabular-nums'), 'numeric cel
 assert.ok(cssSource.includes(".list th, .list td { font-family: 'Kanit', sans-serif;"), 'list headers and body cells should use the same font');
 assert.ok(cssSource.includes("table th, table td { font-family: 'Kanit', sans-serif;"), 'all table pages should use the same font family');
 assert.ok(cssSource.includes('.num-cell { text-align: left;'), 'numeric cells should start on the same left edge as their headers');
+assert.ok(appSource.includes('fmt(s.avg, 2)'), 'weight summary averages should display two decimal places');
+assert.ok(appSource.includes('fmt(r.w_avg, 2)'), 'inspection detail averages should display two decimal places');
+assert.ok(!appSource.includes('fmt(s.avg, 3)'), 'weight summary averages should not display three decimal places');
+assert.ok(!appSource.includes('fmt(r.w_avg, 3)'), 'inspection detail averages should not display three decimal places');
 assert.ok(cssSource.includes('.pending-list th:nth-child(6)'), 'approval quantity column should have an explicit width');
 assert.ok(cssSource.includes('overflow-wrap: anywhere'), 'long labels should wrap instead of squeezing other columns');
 assert.ok(htmlSource.includes('assets/style.css?v=6'), 'stylesheet cache version should be bumped for the alignment update');
-assert.ok(htmlSource.includes('assets/app.js?v=10'), 'script cache version should be bumped for the category label update');
+assert.ok(htmlSource.includes('assets/app.js?v=11'), 'script cache version should be bumped for the weight display update');
 
 console.log('table-layout-contract: ok');
