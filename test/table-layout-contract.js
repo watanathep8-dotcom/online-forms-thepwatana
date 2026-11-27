@@ -29,10 +29,13 @@ assert.ok(appSource.includes('fmt(r.w_avg, 2)'), 'inspection detail averages sho
 assert.ok(!appSource.includes('fmt(s.avg, 3)'), 'weight summary averages should not display three decimal places');
 assert.ok(!appSource.includes('fmt(r.w_avg, 3)'), 'inspection detail averages should not display three decimal places');
 assert.ok(cssSource.includes('.pending-list th:nth-child(6)'), 'approval quantity column should have an explicit width');
-assert.ok(cssSource.includes('.pending-list th:nth-child(8), .pending-list td:nth-child(8) { width: 165px; min-width: 165px;'), 'status column should have enough room inside the table');
+assert.ok(cssSource.includes('table.pending-list { width: 100%; min-width: 0;'), 'approval and history tables should fit the available page width');
+assert.ok(cssSource.includes('.pending-list th:nth-child(8), .pending-list td:nth-child(8) { width: 10%; min-width: 0;'), 'status column should use a responsive width inside the table');
+assert.ok(cssSource.includes('.pending-list th { white-space: normal;'), 'pending table headers should wrap instead of widening the table');
+assert.ok(cssSource.includes('.pending-list .nw { white-space: normal;'), 'pending table dates and quantities should wrap on narrow screens');
 assert.ok(cssSource.includes('.pending-list td:nth-child(8) .pill { max-width: 100%;'), 'status pills should stay inside the status column');
 assert.ok(cssSource.includes('overflow-wrap: anywhere'), 'long labels should wrap instead of squeezing other columns');
-assert.ok(htmlSource.includes('assets/style.css?v=7'), 'stylesheet cache version should be bumped for the table edge update');
+assert.ok(htmlSource.includes('assets/style.css?v=8'), 'stylesheet cache version should be bumped for the responsive table update');
 assert.ok(htmlSource.includes('assets/app.js?v=11'), 'script cache version should be bumped for the weight display update');
 
 console.log('table-layout-contract: ok');
