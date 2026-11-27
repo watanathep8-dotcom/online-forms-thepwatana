@@ -14,6 +14,9 @@ assert.ok(!appSource.includes('ค้นหา เลขที่ใบ / PO / L
 assert.ok(!appSource.includes('จำนวนที่ส่งมอบ (Lot / Order Qty)'), 'entry form must not show Lot in the quantity label');
 assert.ok(!appSource.includes('ขนาด Lot'), 'AQL reference table must not show Lot in its heading');
 assert.ok(!gasSource.includes('requiredText_(input, "lot_no"'), 'backend must accept submissions without Lot / Batch');
+assert.ok(gasSource.includes('กล่อง / ไส้คั่น / แผ่นรอง-รองกล่อง'), 'box category label should use the corrected Thai wording');
+assert.ok(!gasSource.includes('กล่อง / ไส้ติ้น / แผ่นรอง-รองกล่อง'), 'box category label must not retain the typo');
+assert.ok(appSource.includes('กล่อง / ไส้คั่น / แผ่นรอง-รองกล่อง'), 'frontend should normalize the corrected box category label');
 assert.ok(!appSource.includes('3. ตัวแทนผู้จัดส่ง / Supplier'), 'new inspection form must not render the supplier representative section');
 assert.ok(!appSource.includes('billCam') && !appSource.includes('billUp'), 'new inspection form must not render bill upload controls');
 assert.ok(!appSource.includes("if (!f.bill) miss.push('รูปบิลที่ Supplier ลงชื่อ')"), 'client form must not require a supplier bill');

@@ -177,6 +177,8 @@ const pill = (map, k) => map[k] ? `<span class="pill ${map[k].c}"><i class="fa-s
 const dtTH = s => s ? new Date(s.replace(' ', 'T')).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) + ' ' + s.slice(11, 16) + ' น.' : '—';
 const dTH = s => s ? new Date(s.slice(0, 10) + 'T00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 const nowParts = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return { date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` }; };
+const CATEGORY_LABELS = { box: 'กล่อง / ไส้คั่น / แผ่นรอง-รองกล่อง' };
+const normalizeBoot = d => d && Array.isArray(d.categories) ? { ...d, categories: d.categories.map(c => CATEGORY_LABELS[c.key] ? { ...c, name: CATEGORY_LABELS[c.key] } : c) } : d;
 const catOf = key => (S.boot?.categories || []).find(c => c.key === key);
 function aqlOf(lot) {
   lot = Number(String(lot).replace(/,/g, ''));
@@ -221,10 +223,11 @@ $('#roleChip').onclick = async () => {
 async function loadBoot(force) {
   if (!force && S.boot) return S.boot;
   if (!S.boot) { try { S.boot = JSON.parse(store('get', 'oft_boot') || 'null'); } catch {} }
+  S.boot = normalizeBoot(S.boot);
   try {
     const d = await api('bootstrap');
-    S.boot = d;
-    store('set', 'oft_boot', JSON.stringify({ ...d, role: null }));
+    S.boot = normalizeBoot(d);
+    store('set', 'oft_boot', JSON.stringify({ ...S.boot, role: null }));
     if (d.role === null && S.sess) setSess(null);
   } catch (e) {
     if (!S.boot) throw e;

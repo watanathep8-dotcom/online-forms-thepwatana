@@ -27,6 +27,6 @@ assert.ok(cssSource.includes('.num-cell { text-align: left;'), 'numeric cells sh
 assert.ok(cssSource.includes('.pending-list th:nth-child(6)'), 'approval quantity column should have an explicit width');
 assert.ok(cssSource.includes('overflow-wrap: anywhere'), 'long labels should wrap instead of squeezing other columns');
 assert.ok(htmlSource.includes('assets/style.css?v=6'), 'stylesheet cache version should be bumped for the alignment update');
-assert.ok(htmlSource.includes('assets/app.js?v=9'), 'script cache version should be bumped for the Lot label update');
+assert.ok(htmlSource.includes('assets/app.js?v=10'), 'script cache version should be bumped for the category label update');
 
 console.log('table-layout-contract: ok');
